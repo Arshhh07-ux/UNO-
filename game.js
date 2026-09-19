@@ -4110,3 +4110,461 @@ function addGameUIStyle() {
   );
 
 }
+/* =========================================================
+   CREATE GAME HUD
+   ========================================================= */
+
+function createGameUI() {
+
+  let oldHUD =
+    document.getElementById("gameHUD");
+
+  if (oldHUD) {
+    oldHUD.remove();
+  }
+
+  const hud =
+    document.createElement("div");
+
+  hud.id = "gameHUD";
+
+  hud.innerHTML = `
+
+    <div id="gameTop">
+
+      <div class="playerInfo">
+        <strong>ARSH</strong>
+        <span id="aiCards">7 CARDS</span>
+      </div>
+
+      <div id="gameLogo">
+        CARD ARENA
+      </div>
+
+      <div class="playerInfo right">
+        <strong>YOU</strong>
+        <span id="playerCards">7 CARDS</span>
+      </div>
+
+    </div>
+
+    <div id="gameMessage">
+      YOUR TURN
+    </div>
+
+    <div id="turnText">
+      YOUR TURN
+    </div>
+
+    <div id="gameActions">
+
+      <button
+        id="drawButton"
+        type="button">
+        DRAW CARD
+      </button>
+
+      <button
+        id="unoButton"
+        type="button"
+        disabled>
+        UNO
+      </button>
+
+    </div>
+
+  `;
+
+  document.body.appendChild(hud);
+
+
+  /* DRAW */
+
+  const drawButton =
+    document.getElementById(
+      "drawButton"
+    );
+
+  if (drawButton) {
+
+    drawButton.onclick =
+      function () {
+
+        playerDrawCard();
+
+      };
+
+  }
+
+
+  /* UNO */
+
+  const unoButton =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (unoButton) {
+
+    unoButton.onclick =
+      function () {
+
+        callUNO();
+
+      };
+
+  }
+
+}
+
+
+/* =========================================================
+   GAME UI INITIALIZATION
+   ========================================================= */
+
+function ensureGameUI() {
+
+  addGameUIStyle();
+
+  createGameUI();
+
+}
+
+
+/* =========================================================
+   KEYBOARD CONTROLS
+   ========================================================= */
+
+function setupKeyboardControls() {
+
+  window.addEventListener(
+    "keydown",
+    function(event) {
+
+      if (gameOver) return;
+
+      const key =
+        event.key.toLowerCase();
+
+
+      if (key === "u") {
+
+        callUNO();
+
+      }
+
+
+      if (key === "d") {
+
+        playerDrawCard();
+
+      }
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   BOARD POINTER CONTROLS
+   ========================================================= */
+
+function setupPointerControls() {
+
+  if (!renderer) return;
+
+  renderer.domElement.addEventListener(
+    "pointerdown",
+    onBoardPointerDown
+  );
+
+}
+
+
+/* =========================================================
+   RESPONSIVE
+   ========================================================= */
+
+function setupResize() {
+
+  window.addEventListener(
+    "resize",
+    resize3D
+  );
+
+}
+
+
+/* =========================================================
+   FINAL GAME INITIALIZATION
+   ========================================================= */
+
+function beginPlayableGame() {
+
+  ensureGameUI();
+
+  setupPointerControls();
+
+  setupKeyboardControls();
+
+  setupResize();
+
+  renderBoard();
+
+  updateGameUI();
+
+  showMessage(
+    "YOUR TURN"
+  );
+
+}
+
+
+/* =========================================================
+   START GAME CONNECTION
+   ========================================================= */
+
+function startGame() {
+
+  /* Remove old game screen if any */
+
+  const oldGame =
+    document.getElementById(
+      "gameRoot"
+    );
+
+  if (oldGame) {
+
+    oldGame.remove();
+
+  }
+
+
+  /* Read selected options */
+
+  try {
+
+    if (
+      typeof window.gameMode !==
+      "undefined"
+    ) {
+
+      gameMode =
+        window.gameMode;
+
+    }
+
+    if (
+      typeof window.cardStyle !==
+      "undefined"
+    ) {
+
+      cardStyle =
+        window.cardStyle;
+
+    }
+
+    if (
+      typeof window.difficulty !==
+      "undefined"
+    ) {
+
+      difficulty =
+        window.difficulty;
+
+    }
+
+  } catch (error) {
+
+    console.log(
+      "Game settings loaded with defaults."
+    );
+
+  }
+
+
+  /* Normalize */
+
+  gameMode =
+    String(
+      gameMode || "OFFLINE"
+    ).toUpperCase();
+
+  cardStyle =
+    String(
+      cardStyle || "NORMAL"
+    ).toUpperCase();
+
+  difficulty =
+    String(
+      difficulty || "PRO"
+    ).toUpperCase();
+
+
+  /* Reset */
+
+  gameOver = false;
+
+  currentTurn = "PLAYER";
+
+  currentColor = null;
+
+  unoRequired = false;
+
+  unoCalled = false;
+
+  clearTimeout(unoTimer);
+
+
+  /* Create game scene */
+
+  createArena3D();
+
+
+  /* Create fresh deck */
+
+  createDeck();
+
+  shuffle(deck);
+
+
+  /* Deal cards */
+
+  playerHand = [];
+
+  aiHand = [];
+
+  discardPile = [];
+
+
+  for (let i = 0; i < 7; i++) {
+
+    playerHand.push(
+      drawFromDeck()
+    );
+
+    aiHand.push(
+      drawFromDeck()
+    );
+
+  }
+
+
+  /* First discard */
+
+  let firstCard =
+    drawFromDeck();
+
+
+  while (
+    firstCard &&
+    (
+      firstCard.type === "WILD4"
+    )
+  ) {
+
+    deck.unshift(firstCard);
+
+    shuffle(deck);
+
+    firstCard =
+      drawFromDeck();
+
+  }
+
+
+  if (firstCard) {
+
+    discardPile.push(
+      firstCard
+    );
+
+    currentColor =
+      firstCard.color;
+
+  }
+
+
+  /* UI */
+
+  beginPlayableGame();
+
+}
+
+
+/* =========================================================
+   START ANIMATION LOOP
+   ========================================================= */
+
+function startRenderLoop() {
+
+  if (animationStarted) {
+    return;
+  }
+
+  animationStarted = true;
+
+  animate3D();
+
+}
+
+
+/* =========================================================
+   SAFETY CHECK
+   ========================================================= */
+
+function gameSafetyCheck() {
+
+  if (!scene) return;
+
+  if (!camera) return;
+
+  if (!renderer) return;
+
+  if (
+    !document.body.contains(
+      renderer.domElement
+    )
+  ) {
+
+    return;
+
+  }
+
+}
+
+
+/* =========================================================
+   GAME START FLAG
+   ========================================================= */
+
+let animationStarted = false;
+
+
+/* =========================================================
+   AUTO START LOOP AFTER FUNCTIONS LOAD
+   ========================================================= */
+
+if (
+  typeof window !== "undefined"
+) {
+
+  window.addEventListener(
+    "load",
+    function() {
+
+      /* 
+         Do NOT start the game here.
+         Existing index.html menu
+         controls the actual start.
+      */
+
+      console.log(
+        "CARD ARENA GAME ENGINE READY"
+      );
+
+    }
+  );
+
+}
