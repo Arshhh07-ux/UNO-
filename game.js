@@ -1100,18 +1100,6 @@ function drawFromDeck() {
 }
 
 
-/* =========================================================
-   REFILL DECK
-   ========================================================= 
-function drawFromDeck() {
-
-  if (deck.length === 0) {
-    refillDeck();
-  }
-
-  return deck.pop();
-}
-
 
 /* =========================================================
    REFILL DECK
@@ -1549,7 +1537,7 @@ function createCardMesh(
 
 
 /* =========================================================
-   CREATE AI CARD BACK
+           256,CREATE AI CARD BACK
    ========================================================= */
 
 function createCardBackMesh() {
@@ -1657,7 +1645,7 @@ function createCardTexture(card) {
       ctx.createLinearGradient(
         0,
         0,
-        256,
+
         380
       );
 
