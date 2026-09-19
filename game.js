@@ -4568,3 +4568,570 @@ if (
   );
 
 }
+/* =========================================================
+   FINAL 3D ARENA CONNECTION
+   ========================================================= */
+
+function createArena3D() {
+
+  /* ---------- OLD CANVAS CLEANUP ---------- */
+
+  const oldCanvas =
+    document.querySelector(
+      "#game3d canvas"
+    );
+
+  if (oldCanvas) {
+    oldCanvas.remove();
+  }
+
+
+  /* ---------- CONTAINER ---------- */
+
+  let container =
+    document.getElementById(
+      "game3d"
+    );
+
+  if (!container) {
+
+    container =
+      document.createElement(
+        "div"
+      );
+
+    container.id =
+      "game3d";
+
+    document.body.appendChild(
+      container
+    );
+
+  }
+
+
+  container.innerHTML = "";
+
+
+  /* ---------- SCENE ---------- */
+
+  scene =
+    new THREE.Scene();
+
+  scene.background =
+    new THREE.Color(
+      0x020605
+    );
+
+
+  /* ---------- CAMERA ---------- */
+
+  camera =
+    new THREE.PerspectiveCamera(
+      43,
+      innerWidth / innerHeight,
+      0.1,
+      100
+    );
+
+  camera.position.set(
+    0,
+    10.8,
+    11.8
+  );
+
+  camera.lookAt(
+    0,
+    0,
+    0
+  );
+
+
+  /* ---------- RENDERER ---------- */
+
+  renderer =
+    new THREE.WebGLRenderer({
+      antialias:true,
+      alpha:false
+    });
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+
+  renderer.setPixelRatio(
+    Math.min(
+      window.devicePixelRatio || 1,
+      1.8
+    )
+  );
+
+  renderer.shadowMap.enabled =
+    true;
+
+  renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+  container.appendChild(
+    renderer.domElement
+  );
+
+
+  /* =======================================================
+     LIGHTING
+     ======================================================= */
+
+  const ambient =
+    new THREE.AmbientLight(
+      0xffffff,
+      1.15
+    );
+
+  scene.add(
+    ambient
+  );
+
+
+  const goldLight =
+    new THREE.PointLight(
+      0xffd34e,
+      3.2,
+      35
+    );
+
+  goldLight.position.set(
+    0,
+    7,
+    1
+  );
+
+  goldLight.castShadow =
+    true;
+
+  scene.add(
+    goldLight
+  );
+
+
+  const redLight =
+    new THREE.PointLight(
+      0xff1744,
+      1.8,
+      24
+    );
+
+  redLight.position.set(
+    -5,
+    3,
+    2
+  );
+
+  scene.add(
+    redLight
+  );
+
+
+  const blueLight =
+    new THREE.PointLight(
+      0x1677ff,
+      1.4,
+      24
+    );
+
+  blueLight.position.set(
+    5,
+    3,
+    -2
+  );
+
+  scene.add(
+    blueLight
+  );
+
+
+  /* =======================================================
+     FLOOR
+     ======================================================= */
+
+  const floor =
+    new THREE.Mesh(
+
+      new THREE.CylinderGeometry(
+        8.3,
+        8.3,
+        0.45,
+        64
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0x06150f,
+        roughness:0.32,
+        metalness:0.35
+      })
+
+    );
+
+  floor.position.y =
+    -0.45;
+
+  floor.receiveShadow =
+    true;
+
+  scene.add(
+    floor
+  );
+
+
+  /* =======================================================
+     GOLD TABLE BORDER
+     ======================================================= */
+
+  const outerRing =
+    new THREE.Mesh(
+
+      new THREE.TorusGeometry(
+        7.25,
+        0.14,
+        20,
+        120
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0xffc928,
+        metalness:0.95,
+        roughness:0.16
+      })
+
+    );
+
+  outerRing.rotation.x =
+    Math.PI / 2;
+
+  outerRing.position.y =
+    -0.02;
+
+  scene.add(
+    outerRing
+  );
+
+
+  /* =======================================================
+     INNER TABLE
+     ======================================================= */
+
+  const table =
+    new THREE.Mesh(
+
+      new THREE.CylinderGeometry(
+        7.05,
+        7.05,
+        0.18,
+        64
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0x08331f,
+        roughness:0.38,
+        metalness:0.25
+      })
+
+    );
+
+  table.position.y =
+    -0.15;
+
+  table.receiveShadow =
+    true;
+
+  scene.add(
+    table
+  );
+
+
+  /* =======================================================
+     CENTER ARENA
+     ======================================================= */
+
+  const center =
+    new THREE.Mesh(
+
+      new THREE.CylinderGeometry(
+        3.15,
+        3.15,
+        0.08,
+        64
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0x062417,
+        roughness:0.35,
+        metalness:0.15
+      })
+
+    );
+
+  center.position.y =
+    -0.01;
+
+  scene.add(
+    center
+  );
+
+
+  /* =======================================================
+     CENTER GOLD RING
+     ======================================================= */
+
+  const centerRing =
+    new THREE.Mesh(
+
+      new THREE.TorusGeometry(
+        3.05,
+        0.055,
+        12,
+        100
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color:0xffd54a,
+        metalness:0.9,
+        roughness:0.2
+      })
+
+    );
+
+  centerRing.rotation.x =
+    Math.PI / 2;
+
+  centerRing.position.y =
+    0.05;
+
+  scene.add(
+    centerRing
+  );
+
+
+  /* =======================================================
+     DECORATIVE CENTER GLOW
+     ======================================================= */
+
+  const centerLight =
+    new THREE.PointLight(
+      0xffd54a,
+      0.8,
+      9
+    );
+
+  centerLight.position.set(
+    0,
+    1.2,
+    0
+  );
+
+  scene.add(
+    centerLight
+  );
+
+
+  /* =======================================================
+     GAME GROUPS
+     ======================================================= */
+
+  deckGroup =
+    new THREE.Group();
+
+  discardGroup =
+    new THREE.Group();
+
+  playerGroup =
+    new THREE.Group();
+
+  aiGroup =
+    new THREE.Group();
+
+
+  scene.add(
+    deckGroup
+  );
+
+  scene.add(
+    discardGroup
+  );
+
+  scene.add(
+    playerGroup
+  );
+
+  scene.add(
+    aiGroup
+  );
+
+
+  /* =======================================================
+     DECK POSITION
+     ======================================================= */
+
+  deckGroup.position.set(
+    -1.15,
+    0,
+    0
+  );
+
+
+  /* =======================================================
+     DISCARD POSITION
+     ======================================================= */
+
+  discardGroup.position.set(
+    1.15,
+    0,
+    0
+  );
+
+
+  /* =======================================================
+     PLAYER HAND POSITION
+     ======================================================= */
+
+  playerGroup.position.set(
+    0,
+    0,
+    0
+  );
+
+
+  /* =======================================================
+     AI HAND POSITION
+     ======================================================= */
+
+  aiGroup.position.set(
+    0,
+    0,
+    0
+  );
+
+
+  /* =======================================================
+     START RENDER LOOP
+     ======================================================= */
+
+  startRenderLoop();
+
+}
+
+
+/* =========================================================
+   FINAL RESIZE
+   ========================================================= */
+
+function resize3D() {
+
+  if (
+    !camera ||
+    !renderer
+  ) {
+
+    return;
+
+  }
+
+  camera.aspect =
+    innerWidth /
+    innerHeight;
+
+  camera.updateProjectionMatrix();
+
+  renderer.setSize(
+    innerWidth,
+    innerHeight
+  );
+
+}
+
+
+/* =========================================================
+   STABLE CAMERA ANIMATION
+   ========================================================= */
+
+function animate3D() {
+
+  requestAnimationFrame(
+    animate3D
+  );
+
+
+  if (
+    !renderer ||
+    !scene ||
+    !camera
+  ) {
+
+    return;
+
+  }
+
+
+  /* Very small cinematic movement */
+
+  const time =
+    performance.now() *
+    0.00025;
+
+  camera.position.x =
+    Math.sin(time) *
+    0.16;
+
+  camera.position.z =
+    11.8 +
+    Math.cos(time) *
+    0.08;
+
+  camera.lookAt(
+    0,
+    0,
+    0
+  );
+
+
+  renderer.render(
+    scene,
+    camera
+  );
+
+}
+
+
+/* =========================================================
+   TOUCH SUPPORT
+   ========================================================= */
+
+if (
+  "ontouchstart" in window
+) {
+
+  document.addEventListener(
+    "touchstart",
+    function() {
+
+      /*
+        Pointer events already handle
+        card touching on supported browsers.
+      */
+
+    },
+    {
+      passive:true
+    }
+  );
+
+}
+
+
+/* =========================================================
+   ENGINE READY
+   ========================================================= */
+
+console.log(
+  "CARD ARENA 3D ENGINE READY"
+);
