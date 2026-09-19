@@ -8,10 +8,6 @@ let scene = null;
 let camera = null;
 let renderer = null;
 
-let gameMode = "OFFLINE";
-let cardStyle = "NORMAL";
-let difficulty = "PRO";
-
 let gameRunning = false;
 let playerHand = [];
 let aiHand = [];
