@@ -5135,3 +5135,653 @@ if (
 console.log(
   "CARD ARENA 3D ENGINE READY"
 );
+/* =========================================================
+   CARD ARENA — CORE GAME DATA
+   ========================================================= */
+
+let scene = null;
+let camera = null;
+let renderer = null;
+
+let deck = [];
+let discardPile = [];
+
+let playerHand = [];
+let aiHand = [];
+
+let currentTurn = "PLAYER";
+let currentColor = null;
+
+let gameOver = false;
+
+let unoRequired = false;
+let unoCalled = false;
+let unoTimer = null;
+
+let gameMode = "OFFLINE";
+let cardStyle = "NORMAL";
+let difficulty = "PRO";
+
+let mouse =
+  new THREE.Vector2();
+
+let raycaster =
+  new THREE.Raycaster();
+
+let deckGroup = null;
+let discardGroup = null;
+let playerGroup = null;
+let aiGroup = null;
+
+
+/* =========================================================
+   CREATE UNO-STYLE DECK
+   ========================================================= */
+
+function createDeck() {
+
+  deck = [];
+
+  const colors = [
+    "RED",
+    "BLUE",
+    "GREEN",
+    "YELLOW"
+  ];
+
+
+  colors.forEach(color => {
+
+    /* ZERO */
+
+    deck.push({
+      color:color,
+      type:"NUMBER",
+      value:0
+    });
+
+
+    /* 1 - 9 */
+
+    for (
+      let value = 1;
+      value <= 9;
+      value++
+    ) {
+
+      deck.push({
+        color:color,
+        type:"NUMBER",
+        value:value
+      });
+
+      deck.push({
+        color:color,
+        type:"NUMBER",
+        value:value
+      });
+
+    }
+
+
+    /* SKIP */
+
+    for (let i = 0; i < 2; i++) {
+
+      deck.push({
+        color:color,
+        type:"SKIP",
+        value:"SKIP"
+      });
+
+    }
+
+
+    /* REVERSE */
+
+    for (let i = 0; i < 2; i++) {
+
+      deck.push({
+        color:color,
+        type:"REVERSE",
+        value:"REV"
+      });
+
+    }
+
+
+    /* DRAW 2 */
+
+    for (let i = 0; i < 2; i++) {
+
+      deck.push({
+        color:color,
+        type:"DRAW2",
+        value:"+2"
+      });
+
+    }
+
+  });
+
+
+  /* WILD */
+
+  for (let i = 0; i < 4; i++) {
+
+    deck.push({
+      color:"WILD",
+      type:"WILD",
+      value:"WILD"
+    });
+
+  }
+
+
+  /* WILD +4 */
+
+  for (let i = 0; i < 4; i++) {
+
+    deck.push({
+      color:"WILD",
+      type:"WILD4",
+      value:"+4"
+    });
+
+  }
+
+}
+
+
+/* =========================================================
+   SHUFFLE
+   ========================================================= */
+
+function shuffle(array) {
+
+  for (
+    let i = array.length - 1;
+    i > 0;
+    i--
+  ) {
+
+    const j =
+      Math.floor(
+        Math.random() *
+        (i + 1)
+      );
+
+    [
+      array[i],
+      array[j]
+    ] =
+    [
+      array[j],
+      array[i]
+    ];
+
+  }
+
+}
+
+
+/* =========================================================
+   CHECK PLAYABLE CARD
+   ========================================================= */
+
+function canPlay(card) {
+
+  if (!card) {
+    return false;
+  }
+
+
+  if (
+    card.color === "WILD"
+  ) {
+
+    return true;
+
+  }
+
+
+  if (
+    !discardPile.length
+  ) {
+
+    return true;
+
+  }
+
+
+  const top =
+    discardPile[
+      discardPile.length - 1
+    ];
+
+
+  if (!top) {
+    return true;
+  }
+
+
+  /* Same colour */
+
+  if (
+    card.color === currentColor
+  ) {
+
+    return true;
+
+  }
+
+
+  /* Same number / action */
+
+  if (
+    card.type === top.type &&
+    card.type !== "NUMBER"
+  ) {
+
+    return true;
+
+  }
+
+
+  if (
+    card.type === "NUMBER" &&
+    top.type === "NUMBER" &&
+    card.value === top.value
+  ) {
+
+    return true;
+
+  }
+
+
+  return false;
+
+}
+
+
+/* =========================================================
+   DRAW FROM DECK
+   ========================================================= */
+
+function drawFromDeck() {
+
+  if (
+    deck.length === 0
+  ) {
+
+    refillDeck();
+
+  }
+
+  return deck.pop();
+
+}
+
+
+/* =========================================================
+   REFILL DECK
+   ========================================================= */
+
+function refillDeck() {
+
+  if (
+    discardPile.length <= 1
+  ) {
+
+    return;
+
+  }
+
+
+  const top =
+    discardPile.pop();
+
+
+  deck =
+    discardPile.splice(
+      0,
+      discardPile.length
+    );
+
+
+  shuffle(deck);
+
+
+  discardPile = [
+    top
+  ];
+
+
+  currentColor =
+    top.color;
+
+}
+
+
+/* =========================================================
+   GET TOP CARD
+   ========================================================= */
+
+function getTopCard() {
+
+  if (
+    !discardPile.length
+  ) {
+
+    return null;
+
+  }
+
+  return discardPile[
+    discardPile.length - 1
+  ];
+
+}
+
+
+/* =========================================================
+   CLEAR THREE.JS GROUP
+   ========================================================= */
+
+function clearGroup(group) {
+
+  if (!group) {
+    return;
+  }
+
+
+  while (
+    group.children.length
+  ) {
+
+    const object =
+      group.children.pop();
+
+
+    object.traverse(
+      child => {
+
+        if (
+          child.geometry
+        ) {
+
+          child.geometry.dispose();
+
+        }
+
+
+        if (
+          child.material
+        ) {
+
+          if (
+            Array.isArray(
+              child.material
+            )
+          ) {
+
+            child.material.forEach(
+              material => {
+
+                if (
+                  material.map
+                ) {
+
+                  material.map.dispose();
+
+                }
+
+                material.dispose();
+
+              }
+            );
+
+          } else {
+
+            if (
+              child.material.map
+            ) {
+
+              child.material.map.dispose();
+
+            }
+
+            child.material.dispose();
+
+          }
+
+        }
+
+      }
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   CARD BASE COLOR
+   ========================================================= */
+
+function getCardBaseColor(card) {
+
+  if (!card) {
+
+    return 0xffffff;
+
+  }
+
+
+  switch (
+    card.color
+  ) {
+
+    case "RED":
+      return 0xd41445;
+
+    case "BLUE":
+      return 0x1768dc;
+
+    case "GREEN":
+      return 0x07935f;
+
+    case "YELLOW":
+      return 0xd4a000;
+
+    case "WILD":
+      return 0x222222;
+
+    default:
+      return 0xffffff;
+
+  }
+
+}
+
+
+/* =========================================================
+   CARD LABEL
+   ========================================================= */
+
+function getCardLabel(card) {
+
+  if (!card) {
+    return "";
+  }
+
+
+  if (
+    card.type === "WILD4"
+  ) {
+
+    return "+4";
+
+  }
+
+
+  if (
+    card.type === "WILD"
+  ) {
+
+    return "WILD";
+
+  }
+
+
+  if (
+    card.type === "DRAW2"
+  ) {
+
+    return "+2";
+
+  }
+
+
+  if (
+    card.type === "SKIP"
+  ) {
+
+    return "SKIP";
+
+  }
+
+
+  if (
+    card.type === "REVERSE"
+  ) {
+
+    return "↻";
+
+  }
+
+
+  return String(
+    card.value
+  );
+
+}
+
+
+/* =========================================================
+   RESET GAME
+   ========================================================= */
+
+function resetGameData() {
+
+  deck = [];
+
+  discardPile = [];
+
+  playerHand = [];
+
+  aiHand = [];
+
+  currentTurn =
+    "PLAYER";
+
+  currentColor =
+    null;
+
+  gameOver =
+    false;
+
+  unoRequired =
+    false;
+
+  unoCalled =
+    false;
+
+  clearTimeout(
+    unoTimer
+  );
+
+}
+
+
+/* =========================================================
+   FORCE PLAYER TURN
+   ========================================================= */
+
+function setPlayerTurn() {
+
+  currentTurn =
+    "PLAYER";
+
+  updateGameUI();
+
+}
+
+
+/* =========================================================
+   FORCE AI TURN
+   ========================================================= */
+
+function setAITurn() {
+
+  currentTurn =
+    "AI";
+
+  updateGameUI();
+
+}
+
+
+/* =========================================================
+   GAME STATUS
+   ========================================================= */
+
+function getGameStatus() {
+
+  return {
+
+    playerCards:
+      playerHand.length,
+
+    aiCards:
+      aiHand.length,
+
+    turn:
+      currentTurn,
+
+    color:
+      currentColor,
+
+    deck:
+      deck.length
+
+  };
+
+}
+
+
+/* =========================================================
+   DEBUG
+   ========================================================= */
+
+window.CardArena =
+  {
+
+    status:
+      getGameStatus,
+
+    deck:
+      () => deck,
+
+    player:
+      () => playerHand,
+
+    ai:
+      () => aiHand
+
+  };
+
+
+console.log(
+  "CARD ARENA CORE READY"
+);
