@@ -5785,3 +5785,773 @@ window.CardArena =
 console.log(
   "CARD ARENA CORE READY"
 );
+/* =========================================================
+   3D CARD CREATION
+   ========================================================= */
+
+function createCardMesh(card) {
+
+  const group =
+    new THREE.Group();
+
+
+  /* CARD BODY */
+
+  const baseColor =
+    getCardBaseColor(card);
+
+  const body =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        1.02,
+        0.12,
+        1.48
+      ),
+
+      new THREE.MeshStandardMaterial({
+
+        color:baseColor,
+
+        roughness:
+          cardStyle === "GALAXY"
+            ? 0.22
+            : 0.3,
+
+        metalness:
+          cardStyle === "GALAXY"
+            ? 0.35
+            : 0.12
+
+      })
+
+    );
+
+
+  body.castShadow =
+    true;
+
+  body.receiveShadow =
+    true;
+
+  group.add(body);
+
+
+  /* FRONT FACE */
+
+  const texture =
+    createCardTexture(card);
+
+
+  const front =
+    new THREE.Mesh(
+
+      new THREE.PlaneGeometry(
+        0.88,
+        1.34
+      ),
+
+      new THREE.MeshBasicMaterial({
+
+        map:texture,
+
+        transparent:true
+
+      })
+
+    );
+
+
+  front.rotation.x =
+    -Math.PI / 2;
+
+  front.position.y =
+    0.066;
+
+  group.add(front);
+
+
+  /* BACK/FACE DECORATION */
+
+  const edge =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        0.94,
+        0.025,
+        1.40
+      ),
+
+      new THREE.MeshStandardMaterial({
+
+        color:
+          cardStyle === "GALAXY"
+            ? 0x39127a
+            : baseColor,
+
+        metalness:
+          cardStyle === "GALAXY"
+            ? 0.65
+            : 0.25,
+
+        roughness:0.25
+
+      })
+
+    );
+
+
+  edge.position.y =
+    0.075;
+
+
+  group.add(edge);
+
+
+  /* MOVE FACE ABOVE EDGE */
+
+  front.position.y =
+    0.091;
+
+
+  /* CARD DATA */
+
+  group.userData.card =
+    card;
+
+
+  return group;
+
+}
+
+
+/* =========================================================
+   CARD BACK
+   ========================================================= */
+
+function createCardBackMesh() {
+
+  const group =
+    new THREE.Group();
+
+
+  const body =
+    new THREE.Mesh(
+
+      new THREE.BoxGeometry(
+        1.02,
+        0.12,
+        1.48
+      ),
+
+      new THREE.MeshStandardMaterial({
+
+        color:
+          cardStyle === "GALAXY"
+            ? 0x241044
+            : 0x5e071d,
+
+        roughness:0.25,
+
+        metalness:
+          cardStyle === "GALAXY"
+            ? 0.5
+            : 0.2
+
+      })
+
+    );
+
+
+  body.castShadow =
+    true;
+
+  body.receiveShadow =
+    true;
+
+  group.add(body);
+
+
+  const backTexture =
+    createBackTexture();
+
+
+  const back =
+    new THREE.Mesh(
+
+      new THREE.PlaneGeometry(
+        0.88,
+        1.34
+      ),
+
+      new THREE.MeshBasicMaterial({
+
+        map:backTexture
+
+      })
+
+    );
+
+
+  back.rotation.x =
+    -Math.PI / 2;
+
+  back.position.y =
+    0.066;
+
+
+  group.add(back);
+
+
+  return group;
+
+}
+
+
+/* =========================================================
+   CARD FRONT TEXTURE
+   ========================================================= */
+
+function createCardTexture(card) {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width =
+    440;
+
+  canvas.height =
+    620;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  const color =
+    getCardCanvasColor(
+      card
+    );
+
+
+  /* BACKGROUND */
+
+  if (
+    cardStyle === "GALAXY"
+  ) {
+
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        440,
+        620
+      );
+
+    gradient.addColorStop(
+      0,
+      "#090014"
+    );
+
+    gradient.addColorStop(
+      0.45,
+      color
+    );
+
+    gradient.addColorStop(
+      1,
+      "#030006"
+    );
+
+    ctx.fillStyle =
+      gradient;
+
+    ctx.fillRect(
+      0,
+      0,
+      440,
+      620
+    );
+
+
+    /* STARS */
+
+    for (
+      let i = 0;
+      i < 70;
+      i++
+    ) {
+
+      const x =
+        Math.random() * 440;
+
+      const y =
+        Math.random() * 620;
+
+      const size =
+        Math.random() * 2.5;
+
+      ctx.fillStyle =
+        "rgba(255,255,255," +
+        (
+          0.25 +
+          Math.random() * 0.75
+        ) +
+        ")";
+
+      ctx.beginPath();
+
+      ctx.arc(
+        x,
+        y,
+        size,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+
+    }
+
+  } else {
+
+    ctx.fillStyle =
+      color;
+
+    ctx.fillRect(
+      0,
+      0,
+      440,
+      620
+    );
+
+  }
+
+
+  /* INNER WHITE FRAME */
+
+  ctx.strokeStyle =
+    "rgba(255,255,255,.85)";
+
+  ctx.lineWidth =
+    10;
+
+  ctx.roundRect(
+    18,
+    18,
+    404,
+    584,
+    42
+  );
+
+  ctx.stroke();
+
+
+  /* CENTER OVAL */
+
+  ctx.save();
+
+  ctx.translate(
+    220,
+    310
+  );
+
+  ctx.rotate(
+    -0.12
+  );
+
+  ctx.fillStyle =
+    "rgba(255,255,255,.96)";
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    0,
+    0,
+    145,
+    190,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+  ctx.restore();
+
+
+  /* CARD VALUE */
+
+  const label =
+    getCardLabel(
+      card
+    );
+
+
+  ctx.save();
+
+  ctx.translate(
+    220,
+    315
+  );
+
+  ctx.rotate(
+    -0.12
+  );
+
+
+  if (
+    card.color === "WILD"
+  ) {
+
+    ctx.fillStyle =
+      "#151515";
+
+  } else {
+
+    ctx.fillStyle =
+      color;
+
+  }
+
+
+  ctx.textAlign =
+    "center";
+
+  ctx.textBaseline =
+    "middle";
+
+
+  let fontSize =
+    170;
+
+
+  if (
+    label === "SKIP" ||
+    label === "WILD"
+  ) {
+
+    fontSize =
+      72;
+
+  }
+
+
+  ctx.font =
+    "900 " +
+    fontSize +
+    "px Arial";
+
+
+  ctx.fillText(
+    label,
+    0,
+    0
+  );
+
+
+  ctx.restore();
+
+
+  /* CORNER VALUE */
+
+  ctx.fillStyle =
+    "white";
+
+  ctx.font =
+    "900 55px Arial";
+
+  ctx.textAlign =
+    "center";
+
+  ctx.textBaseline =
+    "middle";
+
+
+  ctx.fillText(
+    label,
+    65,
+    68
+  );
+
+
+  ctx.fillText(
+    label,
+    375,
+    552
+  );
+
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+
+  texture.colorSpace =
+    THREE.SRGBColorSpace;
+
+
+  return texture;
+
+}
+
+
+/* =========================================================
+   CARD BACK TEXTURE
+   ========================================================= */
+
+function createBackTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width =
+    440;
+
+  canvas.height =
+    620;
+
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+
+  if (
+    cardStyle === "GALAXY"
+  ) {
+
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        440,
+        620
+      );
+
+    gradient.addColorStop(
+      0,
+      "#05000d"
+    );
+
+    gradient.addColorStop(
+      .5,
+      "#5313a5"
+    );
+
+    gradient.addColorStop(
+      1,
+      "#090014"
+    );
+
+    ctx.fillStyle =
+      gradient;
+
+  } else {
+
+    ctx.fillStyle =
+      "#700020";
+
+  }
+
+
+  ctx.fillRect(
+    0,
+    0,
+    440,
+    620
+  );
+
+
+  /* BORDER */
+
+  ctx.strokeStyle =
+    "#ffd54a";
+
+  ctx.lineWidth =
+    12;
+
+  ctx.roundRect(
+    20,
+    20,
+    400,
+    580,
+    42
+  );
+
+  ctx.stroke();
+
+
+  /* CENTER LOGO */
+
+  ctx.save();
+
+  ctx.translate(
+    220,
+    310
+  );
+
+  ctx.rotate(
+    -0.12
+  );
+
+
+  ctx.fillStyle =
+    "rgba(255,255,255,.96)";
+
+  ctx.beginPath();
+
+  ctx.ellipse(
+    0,
+    0,
+    140,
+    175,
+    0,
+    0,
+    Math.PI * 2
+  );
+
+  ctx.fill();
+
+
+  ctx.fillStyle =
+    "#161616";
+
+  ctx.font =
+    "900 58px Arial";
+
+  ctx.textAlign =
+    "center";
+
+  ctx.textBaseline =
+    "middle";
+
+  ctx.fillText(
+    "CARD",
+    0,
+    -28
+  );
+
+  ctx.fillText(
+    "ARENA",
+    0,
+    38
+  );
+
+
+  ctx.restore();
+
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+
+  texture.colorSpace =
+    THREE.SRGBColorSpace;
+
+
+  return texture;
+
+}
+
+
+/* =========================================================
+   CANVAS CARD COLORS
+   ========================================================= */
+
+function getCardCanvasColor(card) {
+
+  if (!card) {
+
+    return "#333333";
+
+  }
+
+
+  switch (
+    card.color
+  ) {
+
+    case "RED":
+      return "#d41445";
+
+    case "BLUE":
+      return "#1768dc";
+
+    case "GREEN":
+      return "#07935f";
+
+    case "YELLOW":
+      return "#d29b00";
+
+    case "WILD":
+      return galaxyColor(card);
+
+    default:
+      return "#333333";
+
+  }
+
+}
+
+
+/* =========================================================
+   GALAXY COLOR
+   ========================================================= */
+
+function galaxyColor(card) {
+
+  if (
+    !card ||
+    !card.color
+  ) {
+
+    return "#7b1cff";
+
+  }
+
+
+  switch (
+    card.color
+  ) {
+
+    case "RED":
+      return "#b90d51";
+
+    case "BLUE":
+      return "#1454c4";
+
+    case "GREEN":
+      return "#087c5b";
+
+    case "YELLOW":
+      return "#a97100";
+
+    case "WILD":
+      return "#7b1cff";
+
+    default:
+      return "#7b1cff";
+
+  }
+
+}
+
+
+/* =========================================================
+   CARD ARENA READY
+   ========================================================= */
+
+console.log(
+  "CARD TEXTURE SYSTEM READY"
+);
