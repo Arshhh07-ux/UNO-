@@ -2137,3 +2137,1487 @@ function galaxyColor(card) {
 
   return "#7b1cff";
        }
+/* =========================================================
+   PILE / CARD OBJECT HELPERS
+   ========================================================= */
+
+function createCardObject(card, x, z, rotation = 0) {
+
+  const group = new THREE.Group();
+
+  group.position.set(x, 0.18, z);
+  group.rotation.y = rotation;
+
+  const mesh = createCardMesh(card);
+
+  group.add(mesh);
+
+  group.userData.card = card;
+
+  scene.add(group);
+
+  return group;
+}
+
+
+/* =========================================================
+   CENTER DISCARD PILE
+   ========================================================= */
+
+function renderDiscardPile() {
+
+  if (!discardGroup) {
+
+    discardGroup = new THREE.Group();
+
+    scene.add(discardGroup);
+
+  }
+
+  clearGroup(discardGroup);
+
+  if (!discardPile.length) return;
+
+  const start =
+    Math.max(0, discardPile.length - 3);
+
+  for (
+    let i = start;
+    i < discardPile.length;
+    i++
+  ) {
+
+    const card = discardPile[i];
+
+    const mesh =
+      createCardMesh(card);
+
+    mesh.position.set(
+      (i - start) * 0.04,
+      0.16 + (i - start) * 0.025,
+      0
+    );
+
+    mesh.rotation.y =
+      (i - start) * 0.035;
+
+    discardGroup.add(mesh);
+
+  }
+
+}
+
+
+/* =========================================================
+   DECK VISUAL
+   ========================================================= */
+
+function renderDeck() {
+
+  if (!deckGroup) {
+
+    deckGroup = new THREE.Group();
+
+    scene.add(deckGroup);
+
+  }
+
+  clearGroup(deckGroup);
+
+  const visibleCards =
+    Math.min(deck.length, 6);
+
+  for (let i = 0; i < visibleCards; i++) {
+
+    const card =
+      createCardBackMesh();
+
+    card.position.set(
+      0,
+      0.16 + i * 0.035,
+      0.05
+    );
+
+    card.rotation.y =
+      (i % 2 === 0 ? 1 : -1) * 0.02;
+
+    deckGroup.add(card);
+
+  }
+
+}
+
+
+/* =========================================================
+   PLAYER HAND
+   ========================================================= */
+
+function renderPlayerHand() {
+
+  if (!playerGroup) {
+
+    playerGroup =
+      new THREE.Group();
+
+    scene.add(playerGroup);
+
+  }
+
+  clearGroup(playerGroup);
+
+  const count =
+    playerHand.length;
+
+  if (!count) return;
+
+  const spacing =
+    count <= 7 ? 1.18 :
+    count <= 9 ? 1.02 :
+    count <= 11 ? 0.86 :
+    0.74;
+
+  const center =
+    (count - 1) / 2;
+
+  playerHand.forEach(
+    (card, i) => {
+
+      const mesh =
+        createCardMesh(card);
+
+      const x =
+        (i - center) * spacing;
+
+      const distance =
+        Math.abs(i - center);
+
+      const y =
+        0.16 +
+        Math.max(
+          0,
+          0.22 - distance * 0.025
+        );
+
+      const z =
+        4.55 +
+        distance * 0.055;
+
+      mesh.position.set(
+        x,
+        y,
+        z
+      );
+
+      mesh.rotation.y =
+        (i - center) * -0.025;
+
+      mesh.userData.handIndex = i;
+      mesh.userData.card = card;
+
+      playerGroup.add(mesh);
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   AI HAND
+   ========================================================= */
+
+function renderAIHand() {
+
+  if (!aiGroup) {
+
+    aiGroup =
+      new THREE.Group();
+
+    scene.add(aiGroup);
+
+  }
+
+  clearGroup(aiGroup);
+
+  const count =
+    aiHand.length;
+
+  if (!count) return;
+
+  const spacing =
+    count <= 7 ? 1.18 :
+    count <= 9 ? 1.02 :
+    0.85;
+
+  const center =
+    (count - 1) / 2;
+
+  aiHand.forEach(
+    (card, i) => {
+
+      const mesh =
+        createCardBackMesh();
+
+      mesh.position.set(
+        (i - center) * spacing,
+        0.17,
+        -4.45
+      );
+
+      mesh.rotation.y =
+        (i - center) * 0.025;
+
+      aiGroup.add(mesh);
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+   FULL BOARD RENDER
+   ========================================================= */
+
+function renderBoard() {
+
+  renderPlayerHand();
+
+  renderAIHand();
+
+  renderDiscardPile();
+
+  renderDeck();
+
+  updateGameUI();
+
+}
+
+
+/* =========================================================
+   CARD CLICK
+   ========================================================= */
+
+function setupCardInteraction() {
+
+  renderer.domElement.addEventListener(
+    "pointerdown",
+    onBoardPointerDown
+  );
+
+}
+
+
+function onBoardPointerDown(event) {
+
+  if (gameOver) return;
+
+  if (currentTurn !== "PLAYER") return;
+
+  const rect =
+    renderer.domElement.getBoundingClientRect();
+
+  mouse.x =
+    ((event.clientX - rect.left) /
+      rect.width) * 2 - 1;
+
+  mouse.y =
+    -((event.clientY - rect.top) /
+      rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(
+    mouse,
+    camera
+  );
+
+  const objects =
+    raycaster.intersectObjects(
+      playerGroup.children,
+      true
+    );
+
+  if (!objects.length) return;
+
+  let object =
+    objects[0].object;
+
+  while (
+    object &&
+    object.parent !== playerGroup
+  ) {
+
+    object =
+      object.parent;
+
+  }
+
+  if (!object) return;
+
+  const index =
+    object.userData.handIndex;
+
+  if (
+    index === undefined ||
+    !playerHand[index]
+  ) return;
+
+  playPlayerCard(index);
+
+}
+
+
+/* =========================================================
+   PLAYER PLAY
+   ========================================================= */
+
+function playPlayerCard(index) {
+
+  if (currentTurn !== "PLAYER") return;
+
+  const card =
+    playerHand[index];
+
+  if (!card) return;
+
+  if (!canPlay(card)) {
+
+    showMessage(
+      "CARD CANNOT BE PLAYED"
+    );
+
+    shakeCamera();
+
+    return;
+
+  }
+
+  playerHand.splice(index, 1);
+
+  discardPile.push(card);
+
+  if (
+    card.color === "WILD"
+  ) {
+
+    openColorSelector(card);
+
+    return;
+
+  }
+
+  currentColor =
+    card.color;
+
+  afterPlayerCard(card);
+
+}
+
+
+/* =========================================================
+   AFTER PLAYER CARD
+   ========================================================= */
+
+function afterPlayerCard(card) {
+
+  animatePlayedCard();
+
+  renderBoard();
+
+  if (
+    playerHand.length === 0
+  ) {
+
+    finishGame("PLAYER");
+
+    return;
+
+  }
+
+  if (
+    playerHand.length === 1
+  ) {
+
+    unoRequired = true;
+
+    showMessage(
+      "UNO! PRESS THE UNO BUTTON!"
+    );
+
+    startUnoTimer();
+
+    return;
+
+  }
+
+  nextTurn();
+
+}
+
+
+/* =========================================================
+   UNO TIMER
+   ========================================================= */
+
+function startUnoTimer() {
+
+  clearTimeout(unoTimer);
+
+  unoCalled = false;
+
+  const button =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (button) {
+
+    button.disabled = false;
+
+    button.classList.add(
+      "unoReady"
+    );
+
+  }
+
+  unoTimer =
+    setTimeout(() => {
+
+      if (
+        unoRequired &&
+        !unoCalled
+      ) {
+
+        applyUnoPenalty();
+
+      }
+
+    }, 3000);
+
+}
+
+
+/* =========================================================
+   UNO BUTTON
+   ========================================================= */
+
+function callUNO() {
+
+  if (!unoRequired) {
+
+    showMessage(
+      "UNO IS AVAILABLE WHEN YOU HAVE 1 CARD"
+    );
+
+    return;
+
+  }
+
+  if (unoCalled) return;
+
+  unoCalled = true;
+
+  unoRequired = false;
+
+  clearTimeout(unoTimer);
+
+  const button =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (button) {
+
+    button.disabled = true;
+
+    button.classList.remove(
+      "unoReady"
+    );
+
+  }
+
+  showMessage(
+    "🔥 UNO!"
+  );
+
+  pulseUNO();
+
+  setTimeout(
+    nextTurn,
+    500
+  );
+
+}
+
+
+/* =========================================================
+   UNO PENALTY +2
+   ========================================================= */
+
+function applyUnoPenalty() {
+
+  unoRequired = false;
+
+  const button =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (button) {
+
+    button.disabled = true;
+
+    button.classList.remove(
+      "unoReady"
+    );
+
+  }
+
+  drawCardsForPlayer(2);
+
+  showMessage(
+    "UNO MISS! +2 CARDS"
+  );
+
+  shakeCamera();
+
+  renderBoard();
+
+  setTimeout(
+    nextTurn,
+    700
+  );
+
+}
+
+
+/* =========================================================
+   DRAW BUTTON
+   ========================================================= */
+
+function playerDrawCard() {
+
+  if (gameOver) return;
+
+  if (currentTurn !== "PLAYER") {
+
+    showMessage(
+      "WAIT FOR YOUR TURN"
+    );
+
+    return;
+
+  }
+
+  if (unoRequired) {
+
+    applyUnoPenalty();
+
+    return;
+
+  }
+
+  const card =
+    drawFromDeck();
+
+  if (!card) {
+
+    showMessage(
+      "DECK EMPTY"
+    );
+
+    return;
+
+  }
+
+  playerHand.push(card);
+
+  animateDraw();
+
+  renderBoard();
+
+  showMessage(
+    "CARD DRAWN"
+  );
+
+  setTimeout(() => {
+
+    const playable =
+      canPlay(card);
+
+    if (playable) {
+
+      showMessage(
+        "YOU CAN PLAY THE NEW CARD"
+      );
+
+    } else {
+
+      nextTurn();
+
+    }
+
+  }, 500);
+
+}
+
+
+/* =========================================================
+   DRAW CARDS
+   ========================================================= */
+
+function drawCardsForPlayer(amount) {
+
+  for (
+    let i = 0;
+    i < amount;
+    i++
+  ) {
+
+    const card =
+      drawFromDeck();
+
+    if (card) {
+
+      playerHand.push(card);
+
+    }
+
+  }
+
+}
+
+
+/* =========================================================
+   NEXT TURN
+   ========================================================= */
+
+function nextTurn() {
+
+  if (gameOver) return;
+
+  if (unoRequired) {
+
+    if (!unoCalled) {
+
+      applyUnoPenalty();
+
+      return;
+
+    }
+
+  }
+
+  currentTurn =
+    currentTurn === "PLAYER"
+      ? "AI"
+      : "PLAYER";
+
+  updateGameUI();
+
+  if (
+    currentTurn === "AI"
+  ) {
+
+    setTimeout(
+      aiTurn,
+      900
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   AI TURN
+   ========================================================= */
+
+function aiTurn() {
+
+  if (gameOver) return;
+
+  if (currentTurn !== "AI") return;
+
+  showMessage(
+    "ARSH IS THINKING..."
+  );
+
+  const playable = [];
+
+  aiHand.forEach(
+    (card, index) => {
+
+      if (
+        canPlay(card)
+      ) {
+
+        playable.push({
+          card,
+          index
+        });
+
+      }
+
+    }
+  );
+
+  setTimeout(() => {
+
+    if (!playable.length) {
+
+      const card =
+        drawFromDeck();
+
+      if (card) {
+
+        aiHand.push(card);
+
+      }
+
+      renderBoard();
+
+      showMessage(
+        "ARSH DREW A CARD"
+      );
+
+      setTimeout(
+        finishAITurn,
+        700
+      );
+
+      return;
+
+    }
+
+    const selected =
+      chooseAICard(playable);
+
+    playAICard(
+      selected.index
+    );
+
+  }, 700);
+
+}
+
+
+/* =========================================================
+   AI CARD CHOICE
+   ========================================================= */
+
+function chooseAICard(playable) {
+
+  if (
+    difficulty === "EASY"
+  ) {
+
+    return playable[
+      Math.floor(
+        Math.random() *
+        playable.length
+      )
+    ];
+
+  }
+
+  if (
+    difficulty === "HARD"
+  ) {
+
+    playable.sort(
+      (a, b) =>
+        cardPower(b.card) -
+        cardPower(a.card)
+    );
+
+    return playable[0];
+
+  }
+
+  // PRO
+
+  playable.sort(
+    (a, b) =>
+      cardPower(b.card) -
+      cardPower(a.card)
+  );
+
+  return playable[0];
+
+}
+
+
+/* =========================================================
+   CARD POWER
+   ========================================================= */
+
+function cardPower(card) {
+
+  if (!card) return 0;
+
+  if (
+    card.type === "WILD4"
+  ) return 100;
+
+  if (
+    card.type === "WILD"
+  ) return 80;
+
+  if (
+    card.type === "DRAW2"
+  ) return 70;
+
+  if (
+    card.type === "SKIP"
+  ) return 60;
+
+  if (
+    card.type === "REVERSE"
+  ) return 55;
+
+  return Number(
+    card.value || 0
+  );
+
+}
+
+
+/* =========================================================
+   AI PLAY
+   ========================================================= */
+
+function playAICard(index) {
+
+  const card =
+    aiHand[index];
+
+  if (!card) {
+
+    finishAITurn();
+
+    return;
+
+  }
+
+  aiHand.splice(
+    index,
+    1
+  );
+
+  discardPile.push(card);
+
+  if (
+    card.color === "WILD"
+  ) {
+
+    currentColor =
+      chooseAIColor();
+
+  } else {
+
+    currentColor =
+      card.color;
+
+  }
+
+  animatePlayedCard();
+
+  renderBoard();
+
+  showMessage(
+    "ARSH PLAYED " +
+    getCardLabel(card)
+  );
+
+  if (
+    aiHand.length === 0
+  ) {
+
+    finishGame("AI");
+
+    return;
+
+  }
+
+  setTimeout(
+    finishAITurn,
+    800
+  );
+
+}
+
+
+/* =========================================================
+   AI COLOR
+   ========================================================= */
+
+function chooseAIColor() {
+
+  const counts = {
+    RED: 0,
+    BLUE: 0,
+    GREEN: 0,
+    YELLOW: 0
+  };
+
+  aiHand.forEach(
+    card => {
+
+      if (
+        counts[card.color] !== undefined
+      ) {
+
+        counts[card.color]++;
+
+      }
+
+    }
+  );
+
+  let best =
+    "RED";
+
+  Object.keys(counts)
+    .forEach(color => {
+
+      if (
+        counts[color] >
+        counts[best]
+      ) {
+
+        best = color;
+
+      }
+
+    });
+
+  return best;
+
+}
+
+
+/* =========================================================
+   AI FINISH TURN
+   ========================================================= */
+
+function finishAITurn() {
+
+  if (gameOver) return;
+
+  currentTurn =
+    "PLAYER";
+
+  renderBoard();
+
+  showMessage(
+    "YOUR TURN"
+  );
+
+}
+
+
+/* =========================================================
+   COLOR SELECTOR
+   ========================================================= */
+
+function openColorSelector(card) {
+
+  let box =
+    document.getElementById(
+      "colorSelector"
+    );
+
+  if (box) {
+
+    box.remove();
+
+  }
+
+  box =
+    document.createElement(
+      "div"
+    );
+
+  box.id =
+    "colorSelector";
+
+  box.innerHTML = `
+    <div class="colorTitle">
+      CHOOSE COLOR
+    </div>
+
+    <div class="colorButtons">
+
+      <button data-color="RED">
+        RED
+      </button>
+
+      <button data-color="BLUE">
+        BLUE
+      </button>
+
+      <button data-color="GREEN">
+        GREEN
+      </button>
+
+      <button data-color="YELLOW">
+        YELLOW
+      </button>
+
+    </div>
+  `;
+
+  document.body.appendChild(box);
+
+  box.querySelectorAll(
+    "button"
+  ).forEach(button => {
+
+    button.onclick =
+      () => {
+
+        currentColor =
+          button.dataset.color;
+
+        box.remove();
+
+        afterPlayerCard(card);
+
+      };
+
+  });
+
+}
+
+
+/* =========================================================
+   GAME OVER
+   ========================================================= */
+
+function finishGame(winner) {
+
+  gameOver = true;
+
+  clearTimeout(unoTimer);
+
+  if (
+    winner === "PLAYER"
+  ) {
+
+    showMessage(
+      "🏆 YOU WON!"
+    );
+
+  } else {
+
+    showMessage(
+      "ARSH WON!"
+    );
+
+  }
+
+  setTimeout(
+    showGameOver,
+    1200
+  );
+
+}
+
+
+/* =========================================================
+   GAME OVER PANEL
+   ========================================================= */
+
+function showGameOver() {
+
+  let panel =
+    document.getElementById(
+      "gameOverPanel"
+    );
+
+  if (panel) {
+
+    panel.remove();
+
+  }
+
+  panel =
+    document.createElement(
+      "div"
+    );
+
+  panel.id =
+    "gameOverPanel";
+
+  panel.innerHTML = `
+    <div class="gameOverBox">
+
+      <div class="gameOverTitle">
+        ${winnerText()}
+      </div>
+
+      <button id="restartGame">
+        PLAY AGAIN
+      </button>
+
+    </div>
+  `;
+
+  document.body.appendChild(
+    panel
+  );
+
+  document
+    .getElementById(
+      "restartGame"
+    )
+    .onclick = () => {
+
+      panel.remove();
+
+      startGame();
+
+    };
+
+}
+
+
+function winnerText() {
+
+  if (
+    playerHand.length === 0
+  ) {
+
+    return "YOU WIN";
+
+  }
+
+  return "ARSH WINS";
+
+}
+
+
+/* =========================================================
+   CARD LABEL
+   ========================================================= */
+
+function getCardLabel(card) {
+
+  if (!card) return "";
+
+  if (
+    card.type === "WILD4"
+  ) return "WILD +4";
+
+  if (
+    card.type === "WILD"
+  ) return "WILD";
+
+  if (
+    card.type === "DRAW2"
+  ) return "+2";
+
+  if (
+    card.type === "SKIP"
+  ) return "SKIP";
+
+  if (
+    card.type === "REVERSE"
+  ) return "REVERSE";
+
+  return String(
+    card.value
+  );
+
+}
+
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
+
+function showMessage(message) {
+
+  const el =
+    document.getElementById(
+      "gameMessage"
+    );
+
+  if (!el) return;
+
+  el.textContent =
+    message;
+
+  el.classList.remove(
+    "messagePop"
+  );
+
+  void el.offsetWidth;
+
+  el.classList.add(
+    "messagePop"
+  );
+
+}
+
+
+/* =========================================================
+   UNO BUTTON EFFECT
+   ========================================================= */
+
+function pulseUNO() {
+
+  const button =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (!button) return;
+
+  button.classList.add(
+    "unoFlash"
+  );
+
+  setTimeout(
+    () => button.classList.remove(
+      "unoFlash"
+    ),
+    500
+  );
+
+}
+
+
+/* =========================================================
+   CAMERA SHAKE
+   ========================================================= */
+
+function shakeCamera() {
+
+  if (!camera) return;
+
+  const originalX =
+    camera.position.x;
+
+  const originalY =
+    camera.position.y;
+
+  const originalZ =
+    camera.position.z;
+
+  let count = 0;
+
+  const shake =
+    setInterval(() => {
+
+      camera.position.x =
+        originalX +
+        (Math.random() - 0.5) *
+        0.18;
+
+      camera.position.y =
+        originalY +
+        (Math.random() - 0.5) *
+        0.12;
+
+      camera.position.z =
+        originalZ +
+        (Math.random() - 0.5) *
+        0.18;
+
+      count++;
+
+      if (count >= 8) {
+
+        clearInterval(shake);
+
+        camera.position.set(
+          originalX,
+          originalY,
+          originalZ
+        );
+
+      }
+
+    }, 30);
+
+}
+
+
+/* =========================================================
+   DRAW ANIMATION
+   ========================================================= */
+
+function animateDraw() {
+
+  if (!deckGroup) return;
+
+  deckGroup.position.y =
+    0.25;
+
+  setTimeout(() => {
+
+    if (deckGroup) {
+
+      deckGroup.position.y =
+        0;
+
+    }
+
+  }, 250);
+
+}
+
+
+/* =========================================================
+   PLAY ANIMATION
+   ========================================================= */
+
+function animatePlayedCard() {
+
+  if (!discardGroup) return;
+
+  discardGroup.scale.set(
+    1.08,
+    1.08,
+    1.08
+  );
+
+  setTimeout(() => {
+
+    if (discardGroup) {
+
+      discardGroup.scale.set(
+        1,
+        1,
+        1
+      );
+
+    }
+
+  }, 220);
+
+}
+
+
+/* =========================================================
+   START UNO / GAME UI
+   ========================================================= */
+
+function createGameUI() {
+
+  let old =
+    document.getElementById(
+      "gameHUD"
+    );
+
+  if (old) old.remove();
+
+  const hud =
+    document.createElement(
+      "div"
+    );
+
+  hud.id =
+    "gameHUD";
+
+  hud.innerHTML = `
+
+    <div id="gameTop">
+
+      <div class="playerInfo">
+        <strong>ARSH</strong>
+        <span id="aiCards">
+          7 CARDS
+        </span>
+      </div>
+
+      <div id="gameLogo">
+        CARD ARENA
+      </div>
+
+      <div class="playerInfo right">
+        <strong>YOU</strong>
+        <span id="playerCards">
+          7 CARDS
+        </span>
+      </div>
+
+    </div>
+
+
+    <div id="gameMessage">
+      YOUR TURN
+    </div>
+
+
+    <div id="turnText">
+      YOUR TURN
+    </div>
+
+
+    <div id="gameActions">
+
+      <button id="drawButton">
+        DRAW CARD
+      </button>
+
+      <button id="unoButton">
+        UNO
+      </button>
+
+    </div>
+
+  `;
+
+  document.body.appendChild(
+    hud
+  );
+
+  document
+    .getElementById(
+      "drawButton"
+    )
+    .onclick =
+    playerDrawCard;
+
+  document
+    .getElementById(
+      "unoButton"
+    )
+    .onclick =
+    callUNO;
+
+}
+
+
+/* =========================================================
+   UPDATE GAME UI
+   ========================================================= */
+
+function updateGameUI() {
+
+  const playerCards =
+    document.getElementById(
+      "playerCards"
+    );
+
+  const aiCards =
+    document.getElementById(
+      "aiCards"
+    );
+
+  const turn =
+    document.getElementById(
+      "turnText"
+    );
+
+  if (playerCards) {
+
+    playerCards.textContent =
+      playerHand.length +
+      " CARDS";
+
+  }
+
+  if (aiCar
