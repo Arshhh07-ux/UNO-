@@ -1107,3 +1107,1033 @@ function drawFromDeck() {
 /* =========================================================
    REFILL DECK
    ========================================================= 
+function drawFromDeck() {
+
+  if (deck.length === 0) {
+    refillDeck();
+  }
+
+  return deck.pop();
+}
+
+
+/* =========================================================
+   REFILL DECK
+   ========================================================= */
+
+function refillDeck() {
+
+  if (discardPile.length <= 1) {
+    return;
+  }
+
+  const topCard =
+    discardPile[discardPile.length - 1];
+
+  const oldCards =
+    discardPile.slice(0, -1);
+
+  deck = oldCards.map(card => ({
+    color: card.color,
+    value: card.value,
+    type: card.type
+  }));
+
+  discardPile = [topCard];
+
+  shuffle(deck);
+
+  showMessage(
+    "DECK SHUFFLED",
+    700
+  );
+}
+
+
+/* =========================================================
+   SHUFFLE
+   ========================================================= */
+
+function shuffle(array) {
+
+  for (let i = array.length - 1; i > 0; i--) {
+
+    const j =
+      Math.floor(
+        Math.random() * (i + 1)
+      );
+
+    const temp = array[i];
+
+    array[i] = array[j];
+
+    array[j] = temp;
+  }
+
+  return array;
+}
+
+
+/* =========================================================
+   CAN PLAY CARD
+   ========================================================= */
+
+function canPlay(card) {
+
+  if (!card) {
+    return false;
+  }
+
+  const topCard =
+    discardPile[
+      discardPile.length - 1
+    ];
+
+  if (!topCard) {
+    return true;
+  }
+
+  /* Wild cards can always be played */
+
+  if (
+    card.type === "wild" ||
+    card.type === "wild4"
+  ) {
+    return true;
+  }
+
+  /* Same colour */
+
+  if (
+    card.color === currentColor
+  ) {
+    return true;
+  }
+
+  /* Same number/action */
+
+  if (
+    card.value === topCard.value
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   RENDER PLAYER + AI HAND
+   ========================================================= */
+
+function renderHands(initial = false) {
+
+  if (!playerGroup || !aiGroup) {
+    return;
+  }
+
+  clearGroup(playerGroup);
+  clearGroup(aiGroup);
+
+  /* ---------------- PLAYER ---------------- */
+
+  const playerCount =
+    playerHand.length;
+
+  const playerSpread =
+    Math.min(
+      1.08,
+      7.4 /
+      Math.max(
+        playerCount,
+        1
+      )
+    );
+
+  for (
+    let i = 0;
+    i < playerCount;
+    i++
+  ) {
+
+    const card =
+      playerHand[i];
+
+    const center =
+      (playerCount - 1) / 2;
+
+    const x =
+      (i - center) *
+      playerSpread;
+
+    const mesh =
+      createCardMesh(
+        card,
+        true
+      );
+
+    mesh.position.set(
+      x,
+      .18,
+      4.25
+    );
+
+    mesh.rotation.y =
+      (i - center) *
+      -0.035;
+
+    mesh.userData.cardIndex =
+      i;
+
+    mesh.userData.playerCard =
+      true;
+
+    playerGroup.add(mesh);
+  }
+
+
+  /* ---------------- AI ---------------- */
+
+  const aiCount =
+    aiHand.length;
+
+  const aiSpread =
+    Math.min(
+      1.05,
+      7.2 /
+      Math.max(
+        aiCount,
+        1
+      )
+    );
+
+  for (
+    let i = 0;
+    i < aiCount;
+    i++
+  ) {
+
+    const center =
+      (aiCount - 1) / 2;
+
+    const x =
+      (i - center) *
+      aiSpread;
+
+    const mesh =
+      createCardBackMesh();
+
+    mesh.position.set(
+      x,
+      .18,
+      -4.15
+    );
+
+    mesh.rotation.y =
+      (i - center) *
+      0.035;
+
+    aiGroup.add(mesh);
+  }
+
+  updateUI();
+}
+
+
+/* =========================================================
+   CLEAR GROUP
+   ========================================================= */
+
+function clearGroup(group) {
+
+  while (
+    group.children.length > 0
+  ) {
+
+    const child =
+      group.children.pop();
+
+    disposeObject(child);
+  }
+}
+
+
+/* =========================================================
+   DISPOSE 3D OBJECT
+   ========================================================= */
+
+function disposeObject(object) {
+
+  if (!object) {
+    return;
+  }
+
+  object.traverse(child => {
+
+    if (child.geometry) {
+      child.geometry.dispose();
+    }
+
+    if (child.material) {
+
+      if (
+        Array.isArray(
+          child.material
+        )
+      ) {
+
+        child.material.forEach(
+          material => {
+
+            if (material.map) {
+              material.map.dispose();
+            }
+
+            material.dispose();
+          }
+        );
+
+      } else {
+
+        if (
+          child.material.map
+        ) {
+          child.material.map.dispose();
+        }
+
+        child.material.dispose();
+      }
+    }
+  });
+}
+
+
+/* =========================================================
+   CREATE 3D CARD
+   ========================================================= */
+
+function createCardMesh(
+  card,
+  playerCard
+) {
+
+  const group =
+    new THREE.Group();
+
+  const body =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        .98,
+        .13,
+        1.5
+      ),
+      new THREE.MeshStandardMaterial({
+        color:
+          getCardBaseColor(card),
+        roughness:.32,
+        metalness:.08
+      })
+    );
+
+  body.castShadow = true;
+  body.receiveShadow = true;
+
+  group.add(body);
+
+
+  /* CARD FRONT */
+
+  const frontTexture =
+    createCardTexture(card);
+
+  const front =
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        .86,
+        1.36
+      ),
+      new THREE.MeshBasicMaterial({
+        map:frontTexture,
+        transparent:true
+      })
+    );
+
+  front.position.y =
+    .071;
+
+  front.rotation.x =
+    -Math.PI / 2;
+
+  group.add(front);
+
+
+  /* CARD BACK/BOTTOM */
+
+  const backTexture =
+    createCardTexture(card);
+
+  const back =
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        .86,
+        1.36
+      ),
+      new THREE.MeshBasicMaterial({
+        map:backTexture,
+        transparent:true
+      })
+    );
+
+  back.position.y =
+    -.071;
+
+  back.rotation.x =
+    Math.PI / 2;
+
+  group.add(back);
+
+
+  /* SELECTION RING */
+
+  const ring =
+    new THREE.Mesh(
+      new THREE.TorusGeometry(
+        .52,
+        .025,
+        8,
+        40
+      ),
+      new THREE.MeshBasicMaterial({
+        color:0xffd54a,
+        transparent:true,
+        opacity:0
+      })
+    );
+
+  ring.rotation.x =
+    Math.PI / 2;
+
+  ring.position.y =
+    .09;
+
+  ring.name =
+    "selectionRing";
+
+  group.add(ring);
+
+
+  /* GALAXY LIGHT */
+
+  if (
+    cardStyle === "GALAXY" ||
+    cardStyle.includes("GALAXY")
+  ) {
+
+    const glow =
+      new THREE.PointLight(
+        getCardBaseColor(card),
+        .08,
+        2
+      );
+
+    glow.position.y =
+      .35;
+
+    group.add(glow);
+  }
+
+  group.userData.card =
+    card;
+
+  group.userData.playerCard =
+    playerCard;
+
+  return group;
+}
+
+
+/* =========================================================
+   CREATE AI CARD BACK
+   ========================================================= */
+
+function createCardBackMesh() {
+
+  const group =
+    new THREE.Group();
+
+  const body =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        .98,
+        .13,
+        1.5
+      ),
+      new THREE.MeshStandardMaterial({
+        color:0x111827,
+        roughness:.3,
+        metalness:.12
+      })
+    );
+
+  body.castShadow = true;
+  body.receiveShadow = true;
+
+  group.add(body);
+
+
+  const texture =
+    createBackTexture();
+
+  const face =
+    new THREE.Mesh(
+      new THREE.PlaneGeometry(
+        .86,
+        1.36
+      ),
+      new THREE.MeshBasicMaterial({
+        map:texture
+      })
+    );
+
+  face.position.y =
+    .071;
+
+  face.rotation.x =
+    -Math.PI / 2;
+
+  group.add(face);
+
+
+  return group;
+}
+
+
+/* =========================================================
+   CARD BASE COLOR
+   ========================================================= */
+
+function getCardBaseColor(card) {
+
+  if (!card) {
+    return 0x151a24;
+  }
+
+  if (!card.color) {
+    return 0x171b28;
+  }
+
+  return (
+    COLORS[card.color] ||
+    0x171b28
+  );
+}
+
+
+/* =========================================================
+   CARD TEXTURE
+   ========================================================= */
+
+function createCardTexture(card) {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width = 256;
+  canvas.height = 380;
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+  const isGalaxy =
+    String(cardStyle)
+      .toUpperCase()
+      .includes("GALAXY");
+
+  /* ---------------- GALAXY ---------------- */
+
+  if (isGalaxy) {
+
+    const gradient =
+      ctx.createLinearGradient(
+        0,
+        0,
+        256,
+        380
+      );
+
+    gradient.addColorStop(
+      0,
+      galaxyColor(card)
+    );
+
+    gradient.addColorStop(
+      .5,
+      "#101936"
+    );
+
+    gradient.addColorStop(
+      1,
+      "#03040d"
+    );
+
+    ctx.fillStyle =
+      gradient;
+
+    roundRect(
+      ctx,
+      6,
+      6,
+      244,
+      368,
+      30
+    );
+
+    ctx.fill();
+
+
+    /* Stars */
+
+    for (
+      let i = 0;
+      i < 70;
+      i++
+    ) {
+
+      const x =
+        Math.random() * 256;
+
+      const y =
+        Math.random() * 380;
+
+      const r =
+        Math.random() * 1.8 +
+        .3;
+
+      ctx.globalAlpha =
+        Math.random() * .7 +
+        .3;
+
+      ctx.fillStyle =
+        i % 5 === 0
+          ? "#ffd54a"
+          : "#ffffff";
+
+      ctx.beginPath();
+
+      ctx.arc(
+        x,
+        y,
+        r,
+        0,
+        Math.PI * 2
+      );
+
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+
+
+    /* Galaxy ring */
+
+    ctx.strokeStyle =
+      "rgba(255,255,255,.18)";
+
+    ctx.lineWidth = 18;
+
+    ctx.beginPath();
+
+    ctx.arc(
+      125,
+      190,
+      95,
+      -.8,
+      2.3
+    );
+
+    ctx.stroke();
+
+  }
+
+  /* ---------------- NORMAL ---------------- */
+
+  else {
+
+    ctx.fillStyle =
+      getNormalCSSColor(
+        card
+      );
+
+    roundRect(
+      ctx,
+      6,
+      6,
+      244,
+      368,
+      30
+    );
+
+    ctx.fill();
+
+
+    /* White inner oval */
+
+    ctx.fillStyle =
+      "rgba(255,255,255,.96)";
+
+    ctx.beginPath();
+
+    ctx.ellipse(
+      128,
+      190,
+      75,
+      150,
+      -.35,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+  }
+
+
+  /* ---------------- CARD VALUE ---------------- */
+
+  const value =
+    card.value;
+
+  let fontSize = 78;
+
+  if (
+    value.length >= 5
+  ) {
+    fontSize = 32;
+
+  } else if (
+    value.length >= 3
+  ) {
+    fontSize = 45;
+  }
+
+  ctx.textAlign =
+    "center";
+
+  ctx.textBaseline =
+    "middle";
+
+  ctx.font =
+    `900 ${fontSize}px Arial`;
+
+  ctx.lineWidth = 8;
+
+  ctx.strokeStyle =
+    "rgba(0,0,0,.55)";
+
+  ctx.strokeText(
+    value,
+    128,
+    190
+  );
+
+  ctx.fillStyle =
+    "#ffffff";
+
+  ctx.fillText(
+    value,
+    128,
+    190
+  );
+
+
+  /* Corner number */
+
+  ctx.font =
+    "900 24px Arial";
+
+  ctx.fillText(
+    value,
+    36,
+    40
+  );
+
+
+  ctx.save();
+
+  ctx.translate(
+    220,
+    340
+  );
+
+  ctx.rotate(
+    Math.PI
+  );
+
+  ctx.fillText(
+    value,
+    0,
+    0
+  );
+
+  ctx.restore();
+
+
+  if (isGalaxy) {
+
+    ctx.font =
+      "900 13px Arial";
+
+    ctx.fillStyle =
+      "#ffd54a";
+
+    ctx.fillText(
+      "GALAXY",
+      128,
+      345
+    );
+  }
+
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+  texture.colorSpace =
+    THREE.SRGBColorSpace;
+
+  texture.anisotropy =
+    Math.min(
+      renderer.capabilities
+        .getMaxAnisotropy(),
+      4
+    );
+
+  return texture;
+}
+
+
+/* =========================================================
+   CARD BACK TEXTURE
+   ========================================================= */
+
+function createBackTexture() {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width = 256;
+  canvas.height = 380;
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+  const gradient =
+    ctx.createLinearGradient(
+      0,
+      0,
+      256,
+      380
+    );
+
+  gradient.addColorStop(
+    0,
+    "#e31743"
+  );
+
+  gradient.addColorStop(
+    .5,
+    "#4a0b20"
+  );
+
+  gradient.addColorStop(
+    1,
+    "#090c14"
+  );
+
+  ctx.fillStyle =
+    gradient;
+
+  roundRect(
+    ctx,
+    6,
+    6,
+    244,
+    368,
+    30
+  );
+
+  ctx.fill();
+
+
+  ctx.strokeStyle =
+    "#ffffff";
+
+  ctx.lineWidth = 6;
+
+  roundRect(
+    ctx,
+    20,
+    20,
+    216,
+    340,
+    24
+  );
+
+  ctx.stroke();
+
+
+  ctx.fillStyle =
+    "#ffffff";
+
+  ctx.font =
+    "italic 900 42px Arial";
+
+  ctx.textAlign =
+    "center";
+
+  ctx.textBaseline =
+    "middle";
+
+  ctx.fillText(
+    "ARENA",
+    128,
+    190
+  );
+
+
+  for (
+    let i = 0;
+    i < 25;
+    i++
+  ) {
+
+    ctx.fillStyle =
+      "rgba(255,213,74,.6)";
+
+    ctx.beginPath();
+
+    ctx.arc(
+      Math.random() * 256,
+      Math.random() * 380,
+      Math.random() * 2 + .4,
+      0,
+      Math.PI * 2
+    );
+
+    ctx.fill();
+  }
+
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+  texture.colorSpace =
+    THREE.SRGBColorSpace;
+
+  return texture;
+}
+
+
+/* =========================================================
+   TEXTURE HELPERS
+   ========================================================= */
+
+function roundRect(
+  ctx,
+  x,
+  y,
+  width,
+  height,
+  radius
+) {
+
+  ctx.beginPath();
+
+  ctx.moveTo(
+    x + radius,
+    y
+  );
+
+  ctx.arcTo(
+    x + width,
+    y,
+    x + width,
+    y + height,
+    radius
+  );
+
+  ctx.arcTo(
+    x + width,
+    y + height,
+    x,
+    y + height,
+    radius
+  );
+
+  ctx.arcTo(
+    x,
+    y + height,
+    x,
+    y,
+    radius
+  );
+
+  ctx.arcTo(
+    x,
+    y,
+    x + width,
+    y,
+    radius
+  );
+
+  ctx.closePath();
+}
+
+
+function getNormalCSSColor(card) {
+
+  if (!card || !card.color) {
+    return "#202632";
+  }
+
+  return (
+    COLOR_HEX[card.color] ||
+    "#202632"
+  );
+}
+
+
+function galaxyColor(card) {
+
+  if (!card || !card.color) {
+    return "#7b1cff";
+  }
+
+  if (card.color === "RED") {
+    return "#b90d51";
+  }
+
+  if (card.color === "BLUE") {
+    return "#1454c4";
+  }
+
+  if (card.color === "GREEN") {
+    return "#087c5b";
+  }
+
+  if (card.color === "YELLOW") {
+    return "#a97100";
+  }
+
+  return "#7b1cff";
+       }
