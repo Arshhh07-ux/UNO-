@@ -3620,4 +3620,493 @@ function updateGameUI() {
 
   }
 
-  if (aiCar
+    if (aiCards) {
+
+    aiCards.textContent =
+      aiHand.length +
+      " CARDS";
+
+  }
+
+  if (turn) {
+
+    if (currentTurn === "PLAYER") {
+
+      turn.textContent =
+        "YOUR TURN";
+
+    } else {
+
+      turn.textContent =
+        "ARSH'S TURN";
+
+    }
+
+  }
+
+  const message =
+    document.getElementById(
+      "gameMessage"
+    );
+
+  if (message && !message.textContent) {
+
+    message.textContent =
+      currentTurn === "PLAYER"
+        ? "YOUR TURN"
+        : "ARSH IS THINKING...";
+
+  }
+
+  const drawButton =
+    document.getElementById(
+      "drawButton"
+    );
+
+  if (drawButton) {
+
+    drawButton.disabled =
+      currentTurn !== "PLAYER" ||
+      gameOver;
+
+  }
+
+  const unoButton =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (unoButton) {
+
+    unoButton.disabled =
+      !unoRequired ||
+      unoCalled ||
+      gameOver;
+
+  }
+
+}
+
+
+/* =========================================================
+   GAME UI STYLE
+   ========================================================= */
+
+function addGameUIStyle() {
+
+  if (
+    document.getElementById(
+      "cardArenaGameStyle"
+    )
+  ) {
+
+    return;
+
+  }
+
+  const style =
+    document.createElement(
+      "style"
+    );
+
+  style.id =
+    "cardArenaGameStyle";
+
+  style.textContent = `
+
+    #gameHUD{
+      position:fixed;
+      inset:0;
+      z-index:20;
+      pointer-events:none;
+      font-family:Arial,sans-serif;
+    }
+
+    #gameTop{
+      position:absolute;
+      top:18px;
+      left:18px;
+      right:18px;
+
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+
+      color:white;
+    }
+
+    #gameLogo{
+      padding:9px 20px;
+
+      border:2px solid #f4c542;
+      border-radius:18px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #250b0b,
+          #080808
+        );
+
+      color:#ffd54a;
+
+      font-size:16px;
+      font-weight:900;
+
+      letter-spacing:3px;
+
+      box-shadow:
+        0 0 22px
+        rgba(255,200,50,.3);
+    }
+
+    .playerInfo{
+      min-width:100px;
+
+      padding:10px 14px;
+
+      border-radius:14px;
+
+      background:
+        rgba(0,0,0,.58);
+
+      border:1px solid
+        rgba(255,255,255,.12);
+
+      backdrop-filter:blur(8px);
+    }
+
+    .playerInfo.right{
+      text-align:right;
+    }
+
+    .playerInfo strong{
+      display:block;
+      font-size:13px;
+      letter-spacing:2px;
+    }
+
+    .playerInfo span{
+      display:block;
+      margin-top:3px;
+      color:#aaa;
+      font-size:9px;
+      letter-spacing:1px;
+    }
+
+    #gameMessage{
+      position:absolute;
+
+      top:82px;
+      left:50%;
+
+      transform:
+        translateX(-50%);
+
+      color:#ffd54a;
+
+      font-size:12px;
+      font-weight:900;
+
+      letter-spacing:3px;
+
+      text-shadow:
+        0 0 18px
+        rgba(255,210,70,.8);
+
+      white-space:nowrap;
+    }
+
+    #turnText{
+      position:absolute;
+
+      bottom:102px;
+      left:50%;
+
+      transform:
+        translateX(-50%);
+
+      color:white;
+
+      font-size:11px;
+      font-weight:900;
+
+      letter-spacing:4px;
+    }
+
+    #gameActions{
+      position:absolute;
+
+      bottom:22px;
+      left:50%;
+
+      transform:
+        translateX(-50%);
+
+      display:flex;
+      gap:12px;
+
+      pointer-events:auto;
+    }
+
+    #gameActions button{
+
+      min-width:120px;
+
+      padding:13px 20px;
+
+      border:0;
+      border-radius:14px;
+
+      color:white;
+
+      font-size:11px;
+      font-weight:900;
+
+      letter-spacing:1.5px;
+
+      cursor:pointer;
+
+      transition:
+        transform .15s,
+        filter .15s,
+        box-shadow .15s;
+
+      background:
+        linear-gradient(
+          135deg,
+          #151515,
+          #333
+        );
+
+      border:
+        1px solid
+        rgba(255,255,255,.18);
+
+      box-shadow:
+        0 8px 25px
+        rgba(0,0,0,.45);
+    }
+
+    #gameActions button:active{
+      transform:scale(.95);
+    }
+
+    #gameActions button:disabled{
+      opacity:.35;
+      cursor:not-allowed;
+    }
+
+    #unoButton{
+
+      background:
+        linear-gradient(
+          135deg,
+          #ff1744,
+          #a90029
+        ) !important;
+
+      border:
+        1px solid
+        rgba(255,255,255,.4)
+        !important;
+    }
+
+    #unoButton.unoReady{
+
+      animation:
+        unoPulse .7s infinite alternate;
+
+    }
+
+    @keyframes unoPulse{
+
+      from{
+        transform:scale(1);
+
+        box-shadow:
+          0 0 15px
+          rgba(255,20,70,.4);
+      }
+
+      to{
+        transform:scale(1.08);
+
+        box-shadow:
+          0 0 35px
+          rgba(255,20,70,.95);
+      }
+
+    }
+
+    #colorSelector{
+
+      position:fixed;
+      inset:0;
+
+      z-index:100;
+
+      display:flex;
+      flex-direction:column;
+
+      align-items:center;
+      justify-content:center;
+
+      gap:20px;
+
+      background:
+        rgba(0,0,0,.72);
+
+      backdrop-filter:
+        blur(12px);
+
+      pointer-events:auto;
+    }
+
+    .colorTitle{
+
+      color:white;
+
+      font-size:20px;
+      font-weight:900;
+
+      letter-spacing:5px;
+    }
+
+    .colorButtons{
+
+      display:grid;
+
+      grid-template-columns:
+        repeat(2,130px);
+
+      gap:12px;
+    }
+
+    .colorButtons button{
+
+      padding:18px 10px;
+
+      border:0;
+      border-radius:15px;
+
+      color:white;
+
+      font-size:11px;
+      font-weight:900;
+
+      letter-spacing:2px;
+
+      cursor:pointer;
+
+      box-shadow:
+        0 10px 25px
+        rgba(0,0,0,.4);
+    }
+
+    .colorButtons button:nth-child(1){
+      background:#d41445;
+    }
+
+    .colorButtons button:nth-child(2){
+      background:#1768dc;
+    }
+
+    .colorButtons button:nth-child(3){
+      background:#07935f;
+    }
+
+    .colorButtons button:nth-child(4){
+      background:#d49d00;
+    }
+
+    #gameOverPanel{
+
+      position:fixed;
+      inset:0;
+
+      z-index:150;
+
+      display:flex;
+      align-items:center;
+      justify-content:center;
+
+      background:
+        rgba(0,0,0,.65);
+
+      backdrop-filter:
+        blur(12px);
+
+      pointer-events:auto;
+    }
+
+    .gameOverBox{
+
+      width:min(330px,85vw);
+
+      padding:32px;
+
+      border-radius:24px;
+
+      text-align:center;
+
+      background:
+        linear-gradient(
+          145deg,
+          #101612,
+          #050806
+        );
+
+      border:
+        1px solid
+        rgba(255,215,80,.35);
+
+      box-shadow:
+        0 20px 60px
+        rgba(0,0,0,.7);
+    }
+
+    .gameOverTitle{
+
+      color:#ffd54a;
+
+      font-size:27px;
+      font-weight:900;
+
+      letter-spacing:4px;
+
+      margin-bottom:25px;
+    }
+
+    #restartGame{
+
+      width:100%;
+
+      padding:15px;
+
+      border:0;
+      border-radius:14px;
+
+      background:
+        linear-gradient(
+          135deg,
+          #d41445,
+          #8c0626
+        );
+
+      color:white;
+
+      font-weight:900;
+
+      letter-spacing:2px;
+
+      cursor:pointer;
+    }
+
+  `;
+
+  document.head.appendChild(
+    style
+  );
+
+}
