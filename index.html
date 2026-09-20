@@ -2041,40 +2041,85 @@ function startDemoGame(){
           display:block;
           margin-top:6px;
           color:#ffd54a;
-        ">
-          ${cardStyle}
-        </b>
+        <div class="cardGrid">
 
-      </div>
-
-
-      <div style="
-        margin-top:30px;
-        color:#777;
-        font-size:12px;
-      ">
-        ACTUAL 3D GAME TABLE — NEXT STEP
-      </div>
-
-
-      <button
-        onclick="location.reload()"
-        style="
-          margin-top:25px;
-          padding:15px 30px;
-          border:0;
-          border-radius:14px;
-          background:#ff1744;
-          color:white;
-          font-weight:900;
-        "
-      >
-        BACK TO MENU
-      </button>
-
+  <button class="cardStyle selected">
+    <div class="preview">
+      <div class="previewCard redCard">7</div>
+      <div class="previewCard blueCard">2</div>
     </div>
 
-  `;
+    <div class="styleName">CLASSIC</div>
+    <div class="styleDesc">Classic Arena Cards</div>
+  </button>
+
+
+  <button class="cardStyle">
+    <div class="preview">
+      <div class="previewCard goldCard">★</div>
+      <div class="previewCard goldCard">+4</div>
+    </div>
+
+    <div class="styleName">GOLD</div>
+    <div class="styleDesc">Premium Golden Cards</div>
+    <div class="premium">PREMIUM</div>
+  </button>
+
+
+  <button class="cardStyle">
+    <div class="preview">
+      <div class="previewCard diamondCard">9</div>
+      <div class="previewCard diamondCard">+2</div>
+    </div>
+
+    <div class="styleName">DIAMOND</div>
+    <div class="styleDesc">Ice Diamond Collection</div>
+  </button>
+
+
+  <button class="cardStyle">
+    <div class="preview">
+      <div class="previewCard galaxyCard">★</div>
+      <div class="previewCard galaxyCard">5</div>
+    </div>
+
+    <div class="styleName">GALAXY</div>
+    <div class="styleDesc">Cosmic Card Collection</div>
+  </button>
+
+
+  <button class="cardStyle">
+    <div class="preview">
+      <div class="previewCard neonCard">8</div>
+      <div class="previewCard neonCard">+2</div>
+    </div>
+
+    <div class="styleName">NEON</div>
+    <div class="styleDesc">Cyber Neon Cards</div>
+  </button>
+
+
+  <button class="cardStyle">
+    <div class="preview">
+      <div class="previewCard shiningCard">★</div>
+      <div class="previewCard shiningCard">1</div>
+    </div>
+
+    <div class="styleName">SHINING</div>
+    <div class="styleDesc">Animated Shining Collection</div>
+  </button>
+
+</div>
+
+
+<button
+  class="primary"
+  onclick="startRealGame()"
+>
+  ⚡ START ARENA BATTLE
+</button>
+
+</div>
 
 }
 
