@@ -1041,4 +1041,333 @@ function addGameStyles(){
       white-space:nowrap;
     }
 
-    #
+    #      color:white;
+      background:#111;
+    }
+
+    .gameCard:first-child{
+      margin-left:0;
+    }
+
+    .gameCard:active{
+      transform:translateY(-20px) scale(1.05)!important;
+    }
+
+    .gameCard.red{
+      background:linear-gradient(145deg,#ff4965,#a90028);
+    }
+
+    .gameCard.yellow{
+      background:linear-gradient(145deg,#ffe66d,#c28b00);
+      color:#241900;
+    }
+
+    .gameCard.green{
+      background:linear-gradient(145deg,#35efaa,#08784c);
+    }
+
+    .gameCard.blue{
+      background:linear-gradient(145deg,#55b2ff,#0752a6);
+    }
+
+    .gameCard.black{
+      background:
+        linear-gradient(
+          135deg,
+          #ff1744,
+          #151515 42%,
+          #2196ff
+        );
+    }
+
+    .gameCard.playable{
+      box-shadow:
+        0 0 12px rgba(255,255,255,.35),
+        4px 8px 15px rgba(0,0,0,.7);
+    }
+
+    .gameCard.notPlayable{
+      filter:brightness(.45);
+      opacity:.65;
+    }
+
+    #gameControls{
+      display:flex;
+      justify-content:center;
+      gap:10px;
+      margin-top:4px;
+    }
+
+    #gameControls button{
+      padding:12px 20px;
+      border-radius:13px;
+      font-weight:1000;
+      font-size:11px;
+      letter-spacing:1px;
+    }
+
+    #drawButton{
+      background:#202020;
+      border:1px solid #444;
+    }
+
+    #unoButton{
+      background:linear-gradient(100deg,#e80032,#ff3154);
+      box-shadow:0 8px 20px rgba(255,23,68,.25);
+    }
+
+    #wildChooser{
+      position:absolute;
+      left:50%;
+      bottom:145px;
+      transform:translateX(-50%) scale(.8);
+      display:none;
+      align-items:center;
+      gap:8px;
+      padding:14px;
+      border-radius:18px;
+      background:rgba(10,10,10,.97);
+      border:1px solid #444;
+      box-shadow:0 20px 60px rgba(0,0,0,.8);
+      z-index:100;
+    }
+
+    #wildChooser.show{
+      display:flex;
+      animation:wildIn .25s ease forwards;
+    }
+
+    @keyframes wildIn{
+      to{
+        transform:translateX(-50%) scale(1);
+      }
+    }
+
+    #wildChooser div{
+      position:absolute;
+      left:50%;
+      top:-25px;
+      transform:translateX(-50%);
+      font-size:8px;
+      letter-spacing:2px;
+      color:#aaa;
+      white-space:nowrap;
+    }
+
+    #wildChooser button{
+      width:42px;
+      height:42px;
+      border-radius:50%;
+      background:#181818;
+      border:1px solid #444;
+      font-size:20px;
+    }
+
+    @media(max-width:500px){
+
+      #gameTable{
+        width:125vw;
+        height:70vw;
+      }
+
+      #deckVisual{
+        left:32%;
+        transform:
+          translate(-50%,-50%)
+          scale(.8)
+          rotateZ(-8deg);
+      }
+
+      #currentVisual{
+        left:68%;
+        transform:
+          translate(-50%,-50%)
+          scale(.8)
+          rotateZ(4deg);
+      }
+
+      .gameCard{
+        width:45px;
+        height:67px;
+        margin-left:-10px;
+        font-size:20px;
+      }
+
+      #playerHand{
+        min-height:95px;
+      }
+
+      #gameControls button{
+        padding:10px 15px;
+      }
+
+    }
+
+  `;
+
+  document.head.appendChild(style);
+
+}
+
+
+/* =========================================================
+   RENDER PLAYER HAND
+========================================================= */
+
+function renderPlayerHand(){
+
+  const handBox =
+    document.getElementById("playerHand");
+
+  if(!handBox) return;
+
+  handBox.innerHTML = "";
+
+  playerHand.forEach((card,index) => {
+
+    const el =
+      document.createElement("button");
+
+    el.className =
+      "gameCard " + card.color;
+
+    el.textContent =
+      card.value === "Wild"
+        ? "★"
+        : card.value;
+
+    if(
+      playerTurn &&
+      canPlayGameCard(card)
+    ){
+
+      el.classList.add("playable");
+
+    }
+    else{
+
+      el.classList.add("notPlayable");
+
+    }
+
+    el.onclick =
+      () => playGameCard(index);
+
+    handBox.appendChild(el);
+
+  });
+
+}
+
+
+/* =========================================================
+   CHECK PLAYABLE
+========================================================= */
+
+function canPlayGameCard(card){
+
+  if(!card) return false;
+
+  return (
+    card.color === "black" ||
+    card.color === currentCard.color ||
+    card.value === currentCard.value
+  );
+
+}
+
+
+/* =========================================================
+   CURRENT CARD
+========================================================= */
+
+function renderCurrentCard(){
+
+  const el =
+    document.getElementById("currentVisual");
+
+  if(!el) return;
+
+  el.className =
+    "";
+
+  el.id =
+    "currentVisual";
+
+  el.classList.add(
+    currentCard.color
+  );
+
+  el.textContent =
+    currentCard.value === "Wild"
+      ? "★"
+      : currentCard.value;
+
+}
+
+
+/* =========================================================
+   COUNTERS
+========================================================= */
+
+function updateGameCounters(){
+
+  const score =
+    document.getElementById("liveScore");
+
+  if(score){
+
+    score.textContent =
+      gameScore;
+
+  }
+
+
+  const arsh =
+    document.getElementById("arshCount");
+
+  if(arsh){
+
+    arsh.textContent =
+      arshHand.length + " CARDS";
+
+  }
+
+
+  const deck =
+    document.getElementById("deckNumber");
+
+  if(deck){
+
+    deck.textContent =
+      gameDeck.length;
+
+  }
+
+}
+
+
+/* =========================================================
+   TURN TEXT
+========================================================= */
+
+function setGameTurn(textValue){
+
+  const el =
+    document.getElementById(
+      "turnIndicator"
+    );
+
+  if(el){
+
+    el.textContent =
+      textValue;
+
+  }
+
+}
+
+
+/* =========================================================
+   END OF PART 2
+========================================================= */
