@@ -1371,3 +1371,682 @@ function setGameTurn(textValue){
 /* =========================================================
    END OF PART 2
 ========================================================= */
+<script>
+
+/* =========================================================
+   CARD ARENA — PART 3
+   PLAYER CARD ACTIONS + WILD + SCORING
+========================================================= */
+
+
+/* =========================================================
+   PLAY PLAYER CARD
+========================================================= */
+
+function playGameCard(index){
+
+  if(gameBusy) return;
+
+  if(!playerTurn) return;
+
+  const card =
+    playerHand[index];
+
+  if(!card) return;
+
+  if(!canPlayGameCard(card)){
+
+    toastMessage(
+      "❌ CARD CANNOT BE PLAYED"
+    );
+
+    shakeGameTable();
+
+    return;
+
+  }
+
+  gameBusy = true;
+
+  animatePlayedCard(card);
+
+  setTimeout(() => {
+
+    playerHand.splice(index,1);
+
+    currentCard = {
+      color: card.color,
+      value: card.value
+    };
+
+    addGameScore(card);
+
+    renderPlayerHand();
+
+    renderCurrentCard();
+
+    updateGameCounters();
+
+    specialGameEffect(card);
+
+
+    /* PLAYER WINS */
+
+    if(playerHand.length === 0){
+
+      setTimeout(() => {
+
+        finishGame(true);
+
+      },600);
+
+      return;
+
+    }
+
+
+    /*
+      Wild card needs a color.
+    */
+
+    if(card.color === "black"){
+
+      openGameWild();
+
+      return;
+
+    }
+
+
+    playerTurn = false;
+
+    renderPlayerHand();
+
+    setGameTurn(
+      "ARSH PRO THINKING..."
+    );
+
+    setTimeout(() => {
+
+      arshGameTurn();
+
+    },900);
+
+  },450);
+
+}
+
+
+/* =========================================================
+   DRAW
+========================================================= */
+
+function drawPlayerCard(){
+
+  if(gameBusy) return;
+
+  if(!playerTurn) return;
+
+  gameBusy = true;
+
+  const card =
+    drawGameCard();
+
+  playerHand.push(card);
+
+  renderPlayerHand();
+
+  updateGameCounters();
+
+  toastMessage(
+    "🎴 CARD DRAWN"
+  );
+
+  /*
+    Automatically play if
+    the drawn card is playable.
+  */
+
+  if(canPlayGameCard(card)){
+
+    setTimeout(() => {
+
+      gameBusy = false;
+
+      toastMessage(
+        "✨ YOU CAN PLAY THAT CARD"
+      );
+
+    },450);
+
+  }
+  else{
+
+    setTimeout(() => {
+
+      gameBusy = false;
+
+      playerTurn = false;
+
+      renderPlayerHand();
+
+      setGameTurn(
+        "ARSH PRO THINKING..."
+      );
+
+      setTimeout(() => {
+
+        arshGameTurn();
+
+      },700);
+
+    },450);
+
+  }
+
+}
+
+
+/* =========================================================
+   WILD PICKER
+========================================================= */
+
+function openGameWild(){
+
+  const chooser =
+    document.getElementById(
+      "wildChooser"
+    );
+
+  if(!chooser){
+
+    chooseGameColor("red");
+
+    return;
+
+  }
+
+  chooser.classList.add("show");
+
+}
+
+
+/* =========================================================
+   CHOOSE WILD COLOR
+========================================================= */
+
+function chooseGameColor(color){
+
+  if(
+    !["red","yellow","green","blue"]
+      .includes(color)
+  ){
+
+    return;
+
+  }
+
+  currentCard.color = color;
+
+  const chooser =
+    document.getElementById(
+      "wildChooser"
+    );
+
+  if(chooser){
+
+    chooser.classList.remove("show");
+
+  }
+
+  renderCurrentCard();
+
+  toastMessage(
+    "🌈 COLOR → " +
+    color.toUpperCase()
+  );
+
+  playerTurn = false;
+
+  renderPlayerHand();
+
+  setGameTurn(
+    "ARSH PRO THINKING..."
+  );
+
+  setTimeout(() => {
+
+    arshGameTurn();
+
+  },850);
+
+}
+
+
+/* =========================================================
+   SCORE
+========================================================= */
+
+function addGameScore(card){
+
+  if(!card) return;
+
+  if(card.value === "+4"){
+
+    gameScore += 50;
+
+  }
+  else if(card.value === "+2"){
+
+    gameScore += 25;
+
+  }
+  else if(card.color === "black"){
+
+    gameScore += 40;
+
+  }
+  else if(
+    card.value === "Skip" ||
+    card.value === "Reverse"
+  ){
+
+    gameScore += 20;
+
+  }
+  else{
+
+    gameScore += 10;
+
+  }
+
+  const score =
+    document.getElementById(
+      "liveScore"
+    );
+
+  if(score){
+
+    score.textContent =
+      gameScore;
+
+  }
+
+}
+
+
+/* =========================================================
+   SPECIAL CARD EFFECTS
+========================================================= */
+
+function specialGameEffect(card){
+
+  if(!card) return;
+
+
+  if(card.value === "+2"){
+
+    toastMessage(
+      "💥 +2 ATTACK!"
+    );
+
+    shakeGameTable();
+
+    flashGame();
+
+  }
+
+
+  else if(card.value === "+4"){
+
+    toastMessage(
+      "💣 WILD +4!"
+    );
+
+    shakeGameTable();
+
+    flashGame();
+
+    createGameParticles();
+
+  }
+
+
+  else if(card.value === "Skip"){
+
+    toastMessage(
+      "⛔ SKIP!"
+    );
+
+    flashGame();
+
+  }
+
+
+  else if(card.value === "Reverse"){
+
+    toastMessage(
+      "🔄 REVERSE!"
+    );
+
+    shakeGameTable();
+
+  }
+
+}
+
+
+/* =========================================================
+   PLAYED CARD ANIMATION
+========================================================= */
+
+function animatePlayedCard(card){
+
+  const el =
+    document.createElement("div");
+
+  el.className =
+    "gameCard " + card.color;
+
+  el.textContent =
+    card.value === "Wild"
+      ? "★"
+      : card.value;
+
+  el.style.position =
+    "fixed";
+
+  el.style.left =
+    "50%";
+
+  el.style.bottom =
+    "80px";
+
+  el.style.zIndex =
+    "9999";
+
+  el.style.margin =
+    "0";
+
+  el.style.transition =
+    ".55s cubic-bezier(.2,.8,.2,1)";
+
+  document.body.appendChild(el);
+
+  requestAnimationFrame(() => {
+
+    el.style.left =
+      "50%";
+
+    el.style.bottom =
+      "48%";
+
+    el.style.transform =
+      "translate(-50%,-50%) rotate(720deg) scale(.7)";
+
+    el.style.opacity =
+      "0";
+
+  });
+
+  setTimeout(() => {
+
+    el.remove();
+
+  },650);
+
+}
+
+
+/* =========================================================
+   TABLE SHAKE
+========================================================= */
+
+function shakeGameTable(){
+
+  const table =
+    document.getElementById(
+      "gameTable"
+    );
+
+  if(!table) return;
+
+  table.animate(
+
+    [
+      {
+        transform:
+          "translate(-50%,-50%) perspective(900px) rotateX(55deg)"
+      },
+
+      {
+        transform:
+          "translate(calc(-50% - 8px),-50%) perspective(900px) rotateX(55deg)"
+      },
+
+      {
+        transform:
+          "translate(calc(-50% + 8px),-50%) perspective(900px) rotateX(55deg)"
+      },
+
+      {
+        transform:
+          "translate(-50%,-50%) perspective(900px) rotateX(55deg)"
+      }
+    ],
+
+    {
+      duration:360,
+      easing:"ease-out"
+    }
+
+  );
+
+}
+
+
+/* =========================================================
+   FLASH
+========================================================= */
+
+function flashGame(){
+
+  const el =
+    document.createElement("div");
+
+  el.style.position =
+    "fixed";
+
+  el.style.inset =
+    "0";
+
+  el.style.background =
+    "white";
+
+  el.style.opacity =
+    "0";
+
+  el.style.zIndex =
+    "9998";
+
+  document.body.appendChild(el);
+
+  el.animate(
+
+    [
+      {opacity:0},
+      {opacity:.25},
+      {opacity:0}
+    ],
+
+    {
+      duration:400
+    }
+
+  );
+
+  setTimeout(() => {
+
+    el.remove();
+
+  },450);
+
+}
+
+
+/* =========================================================
+   PARTICLES
+========================================================= */
+
+function createGameParticles(){
+
+  for(let i=0;i<30;i++){
+
+    const p =
+      document.createElement("div");
+
+    p.style.position =
+      "fixed";
+
+    p.style.left =
+      "50%";
+
+    p.style.top =
+      "50%";
+
+    p.style.width =
+      "6px";
+
+    p.style.height =
+      "6px";
+
+    p.style.borderRadius =
+      "50%";
+
+    p.style.background =
+      COLORS[
+        Math.floor(
+          Math.random() * COLORS.length
+        )
+      ];
+
+    p.style.zIndex =
+      "9999";
+
+    document.body.appendChild(p);
+
+    const angle =
+      Math.random() *
+      Math.PI * 2;
+
+    const distance =
+      100 +
+      Math.random() * 250;
+
+    p.animate(
+
+      [
+        {
+          transform:
+            "translate(-50%,-50%) scale(1)",
+          opacity:1
+        },
+
+        {
+          transform:
+            `translate(
+              calc(-50% + ${Math.cos(angle)*distance}px),
+              calc(-50% + ${Math.sin(angle)*distance}px)
+            ) scale(0)`,
+          opacity:0
+        }
+      ],
+
+      {
+        duration:
+          600 +
+          Math.random() * 500
+      }
+
+    );
+
+    setTimeout(() => {
+
+      p.remove();
+
+    },1200);
+
+  }
+
+}
+
+
+/* =========================================================
+   UNO BUTTON
+========================================================= */
+
+function sayGameUno(){
+
+  if(playerHand.length === 1){
+
+    toastMessage(
+      "🔥 UNO!"
+    );
+
+    gameScore += 25;
+
+    updateGameCounters();
+
+    createGameParticles();
+
+  }
+  else{
+
+    toastMessage(
+      "YOU NEED 1 CARD!"
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   START GAME BUTTON SUPPORT
+========================================================= */
+
+function launchCardArena(){
+
+  startRealGame();
+
+}
+
+
+/* =========================================================
+   GLOBAL FUNCTIONS
+========================================================= */
+
+window.startRealGame =
+  startRealGame;
+
+window.launchCardArena =
+  launchCardArena;
+
+window.playGameCard =
+  playGameCard;
+
+window.drawPlayerCard =
+  drawPlayerCard;
+
+window.chooseGameColor =
+  chooseGameColor;
+
+window.sayGameUno =
+  sayGameUno;
+
+
+/* =========================================================
+   PART 3 END
+========================================================= */
+
+</script>
