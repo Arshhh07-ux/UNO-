@@ -3494,3 +3494,1362 @@ function updateUI() {
 
   }
 }
+/* =========================================================
+   PART 4 — 3D CARD RENDERING + CARD STYLES
+   ========================================================= */
+
+function clearGroup(group) {
+
+  if (!group) return;
+
+  while (group.children.length) {
+
+    const child =
+      group.children.pop();
+
+    disposeObject(child);
+  }
+}
+
+
+/* =========================================================
+   DISPOSE THREE OBJECT
+   ========================================================= */
+
+function disposeObject(object) {
+
+  if (!object) return;
+
+  object.traverse(
+    child => {
+
+      if (child.geometry) {
+        child.geometry.dispose();
+      }
+
+      if (child.material) {
+
+        if (Array.isArray(child.material)) {
+
+          child.material.forEach(
+            material => {
+
+              if (material.map) {
+                material.map.dispose();
+              }
+
+              material.dispose();
+
+            }
+          );
+
+        } else {
+
+          if (child.material.map) {
+            child.material.map.dispose();
+          }
+
+          child.material.dispose();
+
+        }
+
+      }
+
+    }
+  );
+}
+
+
+/* =========================================================
+   CARD STYLE COLORS
+   ========================================================= */
+
+function getCardColor(card) {
+
+  if (!card || !card.color) {
+
+    return 0x11151f;
+
+  }
+
+  return COLORS[
+    card.color
+  ] || 0x11151f;
+}
+
+
+/* =========================================================
+   CARD STYLE
+   ========================================================= */
+
+function getCardStyle() {
+
+  return String(
+    window.cardStyle ||
+    "NORMAL"
+  ).toUpperCase();
+
+}
+
+
+/* =========================================================
+   CREATE CARD MATERIAL
+   ========================================================= */
+
+function createCardMaterial(
+  card,
+  back = false
+) {
+
+  const style =
+    getCardStyle();
+
+  if (back) {
+
+    if (style === "GALAXY") {
+
+      return new THREE.MeshStandardMaterial({
+        color:0x10104d,
+        roughness:.22,
+        metalness:.55,
+        emissive:0x1717a0,
+        emissiveIntensity:.25
+      });
+
+    }
+
+    return new THREE.MeshStandardMaterial({
+      color:0x8e0929,
+      roughness:.25,
+      metalness:.25,
+      emissive:0x30000b,
+      emissiveIntensity:.15
+    });
+
+  }
+
+  const color =
+    getCardColor(card);
+
+  if (style === "GALAXY") {
+
+    return new THREE.MeshStandardMaterial({
+      color:color,
+      roughness:.18,
+      metalness:.5,
+      emissive:color,
+      emissiveIntensity:.16
+    });
+
+  }
+
+  if (style === "NEON") {
+
+    return new THREE.MeshStandardMaterial({
+      color:color,
+      roughness:.12,
+      metalness:.25,
+      emissive:color,
+      emissiveIntensity:.35
+    });
+
+  }
+
+  if (style === "GOLD") {
+
+    return new THREE.MeshStandardMaterial({
+      color:color,
+      roughness:.18,
+      metalness:.7,
+      emissive:color,
+      emissiveIntensity:.1
+    });
+
+  }
+
+  return new THREE.MeshStandardMaterial({
+    color:color,
+    roughness:.25,
+    metalness:.12
+  });
+
+}
+
+
+/* =========================================================
+   CREATE CARD GROUP
+   ========================================================= */
+
+function createCard3D(
+  card,
+  index = -1,
+  faceUp = true
+) {
+
+  const group =
+    new THREE.Group();
+
+  const width =
+    1.08;
+
+  const height =
+    .12;
+
+  const depth =
+    1.62;
+
+  /*
+   * Card body
+   */
+
+  const body =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        width,
+        height,
+        depth,
+        3,
+        2,
+        3
+      ),
+      createCardMaterial(
+        card,
+        !faceUp
+      )
+    );
+
+  body.castShadow = true;
+  body.receiveShadow = true;
+
+  group.add(body);
+
+
+  /*
+   * White border
+   */
+
+  if (faceUp) {
+
+    const border =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          width * .88,
+          height + .018,
+          depth * .91
+        ),
+        new THREE.MeshBasicMaterial({
+          color:0xffffff
+        })
+      );
+
+    border.position.y =
+      .068;
+
+    group.add(border);
+
+
+    /*
+     * Colored inner face
+     */
+
+    const inner =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          width * .78,
+          .025,
+          depth * .81
+        ),
+        createCardMaterial(
+          card,
+          false
+        )
+      );
+
+    inner.position.y =
+      .084;
+
+    group.add(inner);
+
+
+    /*
+     * Card symbol
+     */
+
+    const symbol =
+      createCardSymbol(
+        card
+      );
+
+    symbol.position.y =
+      .105;
+
+    group.add(symbol);
+
+  } else {
+
+    /*
+     * Back design
+     */
+
+    const backPanel =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          width * .78,
+          .025,
+          depth * .81
+        ),
+        new THREE.MeshStandardMaterial({
+          color:
+            getCardStyle() === "GALAXY"
+              ? 0x15156e
+              : 0x7d0928,
+          roughness:.2,
+          metalness:.35,
+          emissive:
+            getCardStyle() === "GALAXY"
+              ? 0x12128a
+              : 0x25000a,
+          emissiveIntensity:.25
+        })
+      );
+
+    backPanel.position.y =
+      .085;
+
+    group.add(backPanel);
+
+
+    /*
+     * Back center logo
+     */
+
+    const logo =
+      createTextSprite(
+        "ARSH",
+        "#ffffff",
+        34
+      );
+
+    logo.scale.set(
+      .75,
+      .75,
+      .75
+    );
+
+    logo.position.set(
+      0,
+      .11,
+      0
+    );
+
+    logo.rotation.x =
+      -Math.PI / 2;
+
+    group.add(logo);
+
+  }
+
+
+  /*
+   * Store card information
+   */
+
+  group.userData.card =
+    card;
+
+  group.userData.index =
+    index;
+
+  group.userData.isCard =
+    true;
+
+  group.userData.faceUp =
+    faceUp;
+
+
+  /*
+   * Glow
+   */
+
+  if (
+    faceUp &&
+    (
+      getCardStyle() === "GALAXY" ||
+      getCardStyle() === "NEON"
+    )
+  ) {
+
+    const glow =
+      new THREE.PointLight(
+        getCardColor(card),
+        .25,
+        2.5
+      );
+
+    glow.position.y =
+      .5;
+
+    group.add(glow);
+
+  }
+
+  return group;
+}
+
+
+/* =========================================================
+   CARD SYMBOL
+   ========================================================= */
+
+function createCardSymbol(card) {
+
+  let text =
+    "?";
+
+  if (card) {
+
+    if (
+      card.type === "wild4"
+    ) {
+
+      text = "+4";
+
+    } else {
+
+      text =
+        String(
+          card.value
+        );
+
+    }
+
+  }
+
+  const color =
+    card &&
+    card.color
+      ? "#ffffff"
+      : "#ffffff";
+
+  const sprite =
+    createTextSprite(
+      text,
+      color,
+      text.length > 3
+        ? 48
+        : 64
+    );
+
+  sprite.scale.set(
+    .9,
+    .9,
+    .9
+  );
+
+  sprite.rotation.x =
+    -Math.PI / 2;
+
+  return sprite;
+}
+
+
+/* =========================================================
+   TEXT SPRITE
+   ========================================================= */
+
+function createTextSprite(
+  text,
+  color,
+  fontSize
+) {
+
+  const canvas =
+    document.createElement(
+      "canvas"
+    );
+
+  canvas.width =
+    512;
+
+  canvas.height =
+    512;
+
+  const ctx =
+    canvas.getContext(
+      "2d"
+    );
+
+  ctx.clearRect(
+    0,
+    0,
+    512,
+    512
+  );
+
+  ctx.textAlign =
+    "center";
+
+  ctx.textBaseline =
+    "middle";
+
+  ctx.font =
+    `900 ${fontSize}px Arial`;
+
+  ctx.shadowColor =
+    "rgba(0,0,0,.65)";
+
+  ctx.shadowBlur =
+    20;
+
+  ctx.lineWidth =
+    12;
+
+  ctx.strokeStyle =
+    "rgba(0,0,0,.5)";
+
+  ctx.strokeText(
+    text,
+    256,
+    256
+  );
+
+  ctx.shadowBlur =
+    0;
+
+  ctx.fillStyle =
+    color;
+
+  ctx.fillText(
+    text,
+    256,
+    256
+  );
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+  texture.colorSpace =
+    THREE.SRGBColorSpace;
+
+  const material =
+    new THREE.SpriteMaterial({
+      map:texture,
+      transparent:true,
+      depthWrite:false
+    });
+
+  return new THREE.Sprite(
+    material
+  );
+}
+
+
+/* =========================================================
+   PLAYER HAND RENDER
+   ========================================================= */
+
+function renderHands(animate = false) {
+
+  if (!playerGroup || !aiGroup) {
+    return;
+  }
+
+  clearGroup(
+    playerGroup
+  );
+
+  clearGroup(
+    aiGroup
+  );
+
+
+  /*
+   * PLAYER CARDS
+   */
+
+  const count =
+    playerHand.length;
+
+  const spacing =
+    count > 8
+      ? 1.0
+      : 1.15;
+
+  const totalWidth =
+    Math.max(
+      0,
+      (count - 1) * spacing
+    );
+
+  playerHand.forEach(
+    (card, index) => {
+
+      const cardObject =
+        createCard3D(
+          card,
+          index,
+          true
+        );
+
+      const x =
+        -totalWidth / 2 +
+        index * spacing;
+
+      const z =
+        4.65 -
+        Math.abs(
+          index -
+          (count - 1) / 2
+        ) * .025;
+
+      const rotation =
+        (
+          index -
+          (count - 1) / 2
+        ) * .045;
+
+      cardObject.position.set(
+        x,
+        .25,
+        z
+      );
+
+      cardObject.rotation.y =
+        rotation;
+
+      /*
+       * Slight fan
+       */
+
+      cardObject.rotation.x =
+        -.04;
+
+      playerGroup.add(
+        cardObject
+      );
+
+      if (animate) {
+
+        cardObject.scale.set(
+          .01,
+          .01,
+          .01
+        );
+
+        const delay =
+          index * 45;
+
+        setTimeout(
+          () => {
+
+            animateScaleIn(
+              cardObject,
+              280
+            );
+
+          },
+          delay
+        );
+
+      }
+
+    }
+  );
+
+
+  /*
+   * AI CARDS
+   */
+
+  const aiCount =
+    aiHand.length;
+
+  const aiSpacing =
+    aiCount > 8
+      ? .95
+      : 1.1;
+
+  const aiWidth =
+    Math.max(
+      0,
+      (aiCount - 1) *
+      aiSpacing
+    );
+
+  aiHand.forEach(
+    (card, index) => {
+
+      const cardObject =
+        createCard3D(
+          card,
+          index,
+          false
+        );
+
+      const x =
+        -aiWidth / 2 +
+        index * aiSpacing;
+
+      cardObject.position.set(
+        x,
+        .24,
+        -4.35
+      );
+
+      cardObject.rotation.x =
+        Math.PI;
+
+      cardObject.rotation.y =
+        (
+          index -
+          (aiCount - 1) / 2
+        ) * .035;
+
+      aiGroup.add(
+        cardObject
+      );
+
+    }
+  );
+
+
+  setupCardPicking();
+}
+
+
+/* =========================================================
+   SCALE ANIMATION
+   ========================================================= */
+
+function animateScaleIn(
+  object,
+  duration = 300
+) {
+
+  if (!object) return;
+
+  const start =
+    performance.now();
+
+  function tick(now) {
+
+    const progress =
+      Math.min(
+        1,
+        (now - start) /
+        duration
+      );
+
+    const eased =
+      1 -
+      Math.pow(
+        1 - progress,
+        3
+      );
+
+    object.scale.setScalar(
+      eased
+    );
+
+    if (progress < 1) {
+
+      requestAnimationFrame(
+        tick
+      );
+
+    } else {
+
+      object.scale.setScalar(
+        1
+      );
+
+    }
+
+  }
+
+  requestAnimationFrame(
+    tick
+  );
+}
+
+
+/* =========================================================
+   CARD PICKING
+   ========================================================= */
+
+function setupCardPicking() {
+
+  if (!renderer) return;
+
+  renderer.domElement.style.cursor =
+    currentTurn === "PLAYER"
+      ? "pointer"
+      : "default";
+
+}
+
+
+/* =========================================================
+   POINTER SETUP
+   ========================================================= */
+
+function setupPointer() {
+
+  if (!renderer) return;
+
+  const canvas =
+    renderer.domElement;
+
+  canvas.addEventListener(
+    "pointerdown",
+    onPointerDown,
+    {
+      passive:false
+    }
+  );
+
+  canvas.addEventListener(
+    "pointerup",
+    onPointerUp,
+    {
+      passive:false
+    }
+  );
+
+  canvas.addEventListener(
+    "pointercancel",
+    onPointerUp,
+    {
+      passive:false
+    }
+  );
+
+}
+
+
+/* =========================================================
+   POINTER DOWN
+   ========================================================= */
+
+function onPointerDown(event) {
+
+  pointerDown = true;
+
+  updatePointer(
+    event
+  );
+
+}
+
+
+/* =========================================================
+   POINTER UP
+   ========================================================= */
+
+function onPointerUp(event) {
+
+  if (!pointerDown) {
+    return;
+  }
+
+  pointerDown = false;
+
+  updatePointer(
+    event
+  );
+
+  if (!raycaster || !camera) {
+    return;
+  }
+
+  raycaster.setFromCamera(
+    pointer,
+    camera
+  );
+
+  const objects =
+    playerGroup
+      ? playerGroup.children
+      : [];
+
+  const hits =
+    raycaster.intersectObjects(
+      objects,
+      true
+    );
+
+  if (!hits.length) {
+    return;
+  }
+
+  let selected =
+    hits[0].object;
+
+  while (
+    selected &&
+    !selected.userData.isCard
+  ) {
+
+    selected =
+      selected.parent;
+
+  }
+
+  if (
+    selected &&
+    selected.userData.isCard
+  ) {
+
+    const index =
+      selected.userData.index;
+
+    handleCardClick(
+      index
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   UPDATE POINTER
+   ========================================================= */
+
+function updatePointer(event) {
+
+  const rect =
+    renderer
+      .domElement
+      .getBoundingClientRect();
+
+  pointer.x =
+    (
+      (event.clientX - rect.left) /
+      rect.width
+    ) * 2 - 1;
+
+  pointer.y =
+    -(
+      (event.clientY - rect.top) /
+      rect.height
+    ) * 2 + 1;
+
+}
+
+
+/* =========================================================
+   DISCARD PILE
+   ========================================================= */
+
+function renderDiscard() {
+
+  if (!discardGroup) {
+
+    discardGroup =
+      new THREE.Group();
+
+    scene.add(
+      discardGroup
+    );
+
+  }
+
+  clearGroup(
+    discardGroup
+  );
+
+  const visibleCards =
+    discardPile.slice(
+      -3
+    );
+
+  visibleCards.forEach(
+    (card, index) => {
+
+      const object =
+        createCard3D(
+          card,
+          -1,
+          true
+        );
+
+      object.position.set(
+        (index - 1) * .10,
+        .16 +
+        index * .015,
+        .25
+      );
+
+      object.rotation.y =
+        (index - 1) * .08;
+
+      object.rotation.z =
+        (index - 1) * .04;
+
+      discardGroup.add(
+        object
+      );
+
+    }
+  );
+
+  /*
+   * Make the newest card slightly
+   * larger and more visible.
+   */
+
+  if (
+    discardGroup.children.length
+  ) {
+
+    const last =
+      discardGroup.children[
+        discardGroup.children.length - 1
+      ];
+
+    last.scale.setScalar(
+      1.08
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   DECK PILE
+   ========================================================= */
+
+function createPiles() {
+
+  deckGroup =
+    new THREE.Group();
+
+  discardGroup =
+    new THREE.Group();
+
+  scene.add(
+    deckGroup
+  );
+
+  scene.add(
+    discardGroup
+  );
+
+  /*
+   * Deck shadow
+   */
+
+  const deckBase =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        1.2,
+        .16,
+        1.72
+      ),
+      new THREE.MeshStandardMaterial({
+        color:0x05070b,
+        roughness:.5
+      })
+    );
+
+  deckBase.position.set(
+    -2.05,
+    .14,
+    .15
+  );
+
+  deckBase.rotation.y =
+    -.12;
+
+  deckGroup.add(
+    deckBase
+  );
+
+  /*
+   * Visible deck cards
+   */
+
+  for (
+    let i = 0;
+    i < 4;
+    i++
+  ) {
+
+    const fakeCard =
+      {
+        color:null,
+        value:"WILD",
+        type:"wild"
+      };
+
+    const card =
+      createCard3D(
+        fakeCard,
+        -1,
+        false
+      );
+
+    card.position.set(
+      -2.05 +
+      i * .018,
+      .22 +
+      i * .025,
+      .15 +
+      i * .012
+    );
+
+    card.rotation.y =
+      -.12;
+
+    deckGroup.add(
+      card
+    );
+
+  }
+
+  /*
+   * Discard starts at center.
+   */
+
+  renderDiscard();
+
+}
+
+
+/* =========================================================
+   DRAW CARD ANIMATION
+   ========================================================= */
+
+function animateDrawCard(
+  card,
+  owner
+) {
+
+  if (!scene || !card) {
+    return;
+  }
+
+  const fromPlayer =
+    owner === "PLAYER";
+
+  const startX =
+    fromPlayer
+      ? -2.05
+      : -2.05;
+
+  const startZ =
+    .15;
+
+  const endZ =
+    fromPlayer
+      ? 4.45
+      : -4.15;
+
+  const object =
+    createCard3D(
+      card,
+      -1,
+      fromPlayer
+    );
+
+  object.position.set(
+    startX,
+    .6,
+    startZ
+  );
+
+  scene.add(
+    object
+  );
+
+  const start =
+    performance.now();
+
+  const duration =
+    550;
+
+  function move(now) {
+
+    const p =
+      Math.min(
+        1,
+        (now - start) /
+        duration
+      );
+
+    const eased =
+      1 -
+      Math.pow(
+        1 - p,
+        3
+      );
+
+    object.position.z =
+      startZ +
+      (endZ - startZ) *
+      eased;
+
+    object.position.y =
+      .6 +
+      Math.sin(
+        p * Math.PI
+      ) * .6;
+
+    object.rotation.y +=
+      .025;
+
+    object.scale.setScalar(
+      .75 +
+      eased * .25
+    );
+
+    if (p < 1) {
+
+      requestAnimationFrame(
+        move
+      );
+
+    } else {
+
+      scene.remove(
+        object
+      );
+
+      disposeObject(
+        object
+      );
+
+      renderHands(false);
+      renderDiscard();
+
+    }
+
+  }
+
+  requestAnimationFrame(
+    move
+  );
+
+}
+
+
+/* =========================================================
+   PLAY CARD ANIMATION
+   ========================================================= */
+
+function animatePlayedCard(
+  card
+) {
+
+  if (!scene || !card) {
+    return;
+  }
+
+  const object =
+    createCard3D(
+      card,
+      -1,
+      true
+    );
+
+  object.position.set(
+    0,
+    .7,
+    currentTurn === "PLAYER"
+      ? 4.4
+      : -4.2
+  );
+
+  object.rotation.z =
+    (Math.random() - .5) *
+    .25;
+
+  object.scale.setScalar(
+    .85
+  );
+
+  scene.add(
+    object
+  );
+
+  const start =
+    performance.now();
+
+  const duration =
+    500;
+
+  function animate(now) {
+
+    const p =
+      Math.min(
+        1,
+        (now - start) /
+        duration
+      );
+
+    const eased =
+      1 -
+      Math.pow(
+        1 - p,
+        3
+      );
+
+    object.position.z =
+      (
+        currentTurn === "PLAYER"
+          ? 4.4
+          : -4.2
+      ) *
+      (1 - eased);
+
+    object.position.y =
+      .7 +
+      Math.sin(
+        p * Math.PI
+      ) * .7;
+
+    object.rotation.z *=
+      .96;
+
+    object.scale.setScalar(
+      .85 +
+      eased * .23
+    );
+
+    if (p < 1) {
+
+      requestAnimationFrame(
+        animate
+      );
+
+    } else {
+
+      scene.remove(
+        object
+      );
+
+      disposeObject(
+        object
+      );
+
+      renderDiscard();
+
+      /*
+       * Small board impact
+       */
+
+      shakeBoard();
+
+    }
+
+  }
+
+  requestAnimationFrame(
+    animate
+  );
+
+       }
