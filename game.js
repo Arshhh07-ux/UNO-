@@ -7490,3 +7490,502 @@ setTimeout(() => {
   }
 
 }, 50);
+/* =========================================================
+   ARSH CARD ARENA
+   FINAL STABILIZER
+   ========================================================= */
+
+
+/* =========================================================
+   FINAL GAME INITIALIZATION
+   ========================================================= */
+
+function initializeArenaGame() {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  if (!scene || !camera || !renderer) {
+    return;
+  }
+
+  try {
+
+    createPiles();
+
+  } catch (error) {
+    console.error(
+      "Pile creation error:",
+      error
+    );
+  }
+
+  try {
+
+    setupButtons();
+
+  } catch (error) {
+    console.error(
+      "Button setup error:",
+      error
+    );
+  }
+
+  try {
+
+    bindArenaPointer();
+
+  } catch (error) {
+    console.error(
+      "Pointer setup error:",
+      error
+    );
+  }
+
+  try {
+
+    resizeArena();
+
+  } catch (error) {
+    console.error(
+      "Resize error:",
+      error
+    );
+  }
+
+  try {
+
+    renderHands(false);
+    renderDiscard();
+
+  } catch (error) {
+    console.error(
+      "Card rendering error:",
+      error
+    );
+  }
+
+  try {
+
+    refreshArenaUI();
+
+  } catch (error) {
+    console.error(
+      "UI refresh error:",
+      error
+    );
+  }
+
+  showMessage("READY");
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    if (currentTurn === "PLAYER") {
+      showMessage("YOUR TURN");
+    } else {
+      showMessage("ARSH'S TURN");
+    }
+
+  }, 900);
+}
+
+
+/* =========================================================
+   FINAL START PATCH
+   ========================================================= */
+
+function bootArena() {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  try {
+
+    if (!scene) {
+      createArena3D();
+    }
+
+    if (
+      playerHand.length === 0 &&
+      aiHand.length === 0
+    ) {
+
+      startFreshRound();
+
+    } else {
+
+      renderHands(false);
+      renderDiscard();
+
+    }
+
+    initializeArenaGame();
+
+  } catch (error) {
+
+    console.error(
+      "CARD ARENA ERROR:",
+      error
+    );
+
+    showMessage(
+      "ARENA ERROR — RESTART"
+    );
+
+  }
+}
+
+
+/* =========================================================
+   FORCE RENDER
+   ========================================================= */
+
+function forceArenaRender() {
+
+  if (
+    renderer &&
+    scene &&
+    camera
+  ) {
+
+    renderer.render(
+      scene,
+      camera
+    );
+
+  }
+}
+
+
+/* =========================================================
+   GAME HEARTBEAT
+   ========================================================= */
+
+setInterval(() => {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  if (
+    !renderer ||
+    !scene ||
+    !camera
+  ) {
+    return;
+  }
+
+  forceArenaRender();
+
+}, 1000);
+
+
+/* =========================================================
+   FINAL START GAME OVERRIDE
+   ========================================================= */
+
+function startGame() {
+
+  if (gameRunning) {
+    return;
+  }
+
+  gameRunning = true;
+
+
+  try {
+
+    if (
+      typeof gameMode !== "undefined"
+    ) {
+
+      gameMode =
+        String(gameMode)
+          .toUpperCase();
+
+    }
+
+    if (
+      typeof cardStyle !== "undefined"
+    ) {
+
+      cardStyle =
+        String(cardStyle)
+          .toUpperCase();
+
+    }
+
+    if (
+      typeof difficulty !== "undefined"
+    ) {
+
+      difficulty =
+        String(difficulty)
+          .toUpperCase();
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      "Game settings could not be read."
+    );
+
+  }
+
+
+  document.body.innerHTML = `
+
+    <div id="game3d"></div>
+
+    <div id="gameVignette"></div>
+
+    <div id="topUI">
+
+      <div id="aiCounter">
+        ARSH • 7 CARDS
+      </div>
+
+      <div id="turnUI">
+        YOUR TURN
+      </div>
+
+      <div id="colorUI">
+        COLOR • —
+      </div>
+
+    </div>
+
+
+    <div id="cardCounter">
+      YOUR CARDS • 7
+    </div>
+
+
+    <div id="gameMessage">
+      READY
+    </div>
+
+
+    <button
+      id="drawCard"
+      class="gameButton drawButton"
+    >
+      DRAW CARD
+    </button>
+
+
+    <button
+      id="unoButton"
+      class="gameButton unoButton"
+      disabled
+    >
+      UNO
+    </button>
+
+
+    <div
+      id="wildChooser"
+      style="display:none;"
+    >
+
+      <div class="wildTitle">
+        CHOOSE COLOR
+      </div>
+
+      <button
+        data-color="RED"
+        class="wildRed"
+      >
+        RED
+      </button>
+
+      <button
+        data-color="BLUE"
+        class="wildBlue"
+      >
+        BLUE
+      </button>
+
+      <button
+        data-color="GREEN"
+        class="wildGreen"
+      >
+        GREEN
+      </button>
+
+      <button
+        data-color="YELLOW"
+        class="wildYellow"
+      >
+        YELLOW
+      </button>
+
+    </div>
+
+
+    <div
+      id="endScreen"
+      style="display:none;"
+    >
+
+      <div class="endBox">
+
+        <div class="resultText">
+          YOU WIN!
+        </div>
+
+        <button
+          id="restartGame"
+          class="gameButton"
+        >
+          PLAY AGAIN
+        </button>
+
+        <button
+          id="backToMenu"
+          class="gameButton"
+        >
+          MAIN MENU
+        </button>
+
+      </div>
+
+    </div>
+
+  `;
+
+
+  try {
+
+    injectGameStyles();
+
+  } catch (error) {
+
+    console.error(
+      "Style error:",
+      error
+    );
+
+  }
+
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    try {
+
+      createArena3D();
+
+      setupGame();
+
+      setupButtons();
+
+      bindArenaPointer();
+
+      resizeArena();
+
+      renderHands(false);
+
+      renderDiscard();
+
+      refreshArenaUI();
+
+      showMessage("READY");
+
+      setTimeout(() => {
+
+        if (
+          gameRunning &&
+          currentTurn === "PLAYER"
+        ) {
+
+          showMessage(
+            "YOUR TURN"
+          );
+
+        }
+
+      }, 850);
+
+    } catch (error) {
+
+      console.error(
+        "ARENA START ERROR:",
+        error
+      );
+
+      const message =
+        document.getElementById(
+          "gameMessage"
+        );
+
+      if (message) {
+
+        message.textContent =
+          "GAME ERROR";
+
+      }
+
+    }
+
+  }, 30);
+}
+
+
+/* =========================================================
+   FINAL POINTER SAFETY
+   ========================================================= */
+
+document.addEventListener(
+  "pointerup",
+  function(event) {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    if (
+      event.target &&
+      event.target.closest &&
+      event.target.closest(
+        "button"
+      )
+    ) {
+      return;
+    }
+
+  },
+  { passive: true }
+);
+
+
+/* =========================================================
+   FINAL CONSOLE MESSAGE
+   ========================================================= */
+
+console.log(
+  "%cCARD ARENA READY",
+  "font-size:18px;font-weight:bold;"
+);
+
+console.log(
+  "3D Engine: ONLINE"
+);
+
+console.log(
+  "Game System: ONLINE"
+);
+
+console.log(
+  "AI Opponent: ARSH"
+);
