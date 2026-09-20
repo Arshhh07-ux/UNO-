@@ -2047,4 +2047,772 @@ window.sayGameUno =
 /* =========================================================
    PART 3 END
 ========================================================= */
+/* =========================================================
+   CARD ARENA — PART 4
+   ARSH PRO AI + GAME END
+========================================================= */
 
+
+/* =========================================================
+   ARSH PRO TURN
+========================================================= */
+
+function arshGameTurn(){
+
+  if(gameBusy) return;
+
+  gameBusy = true;
+
+  setGameTurn(
+    "ARSH PRO IS PLAYING..."
+  );
+
+
+  setTimeout(() => {
+
+    /*
+      Find playable cards from
+      ARSH'S ACTUAL HAND.
+    */
+
+    let possible =
+      arshHand.filter(card =>
+        canPlayGameCard(card)
+      );
+
+
+    /*
+      If Arsh has no playable card,
+      draw one.
+    */
+
+    if(possible.length === 0){
+
+      const drawn =
+        drawGameCard();
+
+      arshHand.push(drawn);
+
+      updateGameCounters();
+
+      toastMessage(
+        "ARSH DREW A CARD"
+      );
+
+
+      /*
+        Check whether the drawn
+        card can immediately be played.
+      */
+
+      if(canPlayGameCard(drawn)){
+
+        possible = [drawn];
+
+      }
+
+    }
+
+
+    /*
+      Still nothing playable.
+    */
+
+    if(possible.length === 0){
+
+      finishArshTurn();
+
+      return;
+
+    }
+
+
+    /*
+      Choose the smartest card.
+    */
+
+    const chosen =
+      chooseArshCard(possible);
+
+    playArshCard(chosen);
+
+  },900);
+
+}
+
+
+/* =========================================================
+   SMART ARSH CARD CHOICE
+========================================================= */
+
+function chooseArshCard(possible){
+
+  let best =
+    possible[0];
+
+  let bestScore =
+    -Infinity;
+
+
+  possible.forEach(card => {
+
+    let value = 0;
+
+
+    /*
+      Prefer attack cards.
+    */
+
+    if(card.value === "+4")
+      value += 80;
+
+    if(card.value === "+2")
+      value += 55;
+
+    if(card.value === "Skip")
+      value += 35;
+
+
+    /*
+      Prefer cards matching
+      the current color.
+    */
+
+    if(
+      card.color === currentCard.color
+    ){
+
+      value += 20;
+
+    }
+
+
+    /*
+      Matching value is useful.
+    */
+
+    if(
+      card.value === currentCard.value
+    ){
+
+      value += 25;
+
+    }
+
+
+    /*
+      If Arsh has few cards,
+      prioritize powerful cards.
+    */
+
+    if(arshHand.length <= 3){
+
+      if(card.value === "+4")
+        value += 50;
+
+      if(card.value === "+2")
+        value += 35;
+
+    }
+
+
+    /*
+      Avoid wasting Wild when
+      a normal card is available.
+    */
+
+    if(card.color === "black"){
+
+      value -= 12;
+
+    }
+
+
+    /*
+      Small randomness makes
+      the AI less predictable.
+    */
+
+    value +=
+      Math.random() * 10;
+
+
+    if(value > bestScore){
+
+      bestScore = value;
+      best = card;
+
+    }
+
+  });
+
+
+  return best;
+
+}
+
+
+/* =========================================================
+   ARSH PLAY CARD
+========================================================= */
+
+function playArshCard(card){
+
+  const index =
+    arshHand.indexOf(card);
+
+  if(index === -1){
+
+    finishArshTurn();
+
+    return;
+
+  }
+
+
+  animateArshCard(card);
+
+
+  setTimeout(() => {
+
+    arshHand.splice(
+      index,
+      1
+    );
+
+
+    currentCard = {
+      color: card.color,
+      value: card.value
+    };
+
+
+    renderCurrentCard();
+
+    updateGameCounters();
+
+    specialGameEffect(card);
+
+
+    toastMessage(
+      card.value === "+4"
+        ? "💣 ARSH PLAYED +4!"
+        : "🔥 ARSH PLAYED " +
+          card.value
+    );
+
+
+    /*
+      ARSH WINS
+    */
+
+    if(arshHand.length === 0){
+
+      setTimeout(() => {
+
+        finishGame(false);
+
+      },700);
+
+      return;
+
+    }
+
+
+    /*
+      Wild card.
+    */
+
+    if(card.color === "black"){
+
+      setTimeout(() => {
+
+        arshChooseGameColor();
+
+      },500);
+
+      return;
+
+    }
+
+
+    finishArshTurn();
+
+  },500);
+
+}
+
+
+/* =========================================================
+   ARSH WILD COLOR
+========================================================= */
+
+function arshChooseGameColor(){
+
+  const counts = {
+    red:0,
+    yellow:0,
+    green:0,
+    blue:0
+  };
+
+
+  /*
+    Count colors in Arsh's
+    remaining hand.
+  */
+
+  arshHand.forEach(card => {
+
+    if(
+      counts[card.color] !== undefined
+    ){
+
+      counts[card.color]++;
+
+    }
+
+  });
+
+
+  let bestColor =
+    "red";
+
+  let highest =
+    -1;
+
+
+  COLORS.forEach(color => {
+
+    if(
+      counts[color] > highest
+    ){
+
+      highest =
+        counts[color];
+
+      bestColor =
+        color;
+
+    }
+
+  });
+
+
+  currentCard.color =
+    bestColor;
+
+
+  renderCurrentCard();
+
+
+  toastMessage(
+    "🌈 ARSH CHOSE " +
+    bestColor.toUpperCase()
+  );
+
+
+  finishArshTurn();
+
+}
+
+
+/* =========================================================
+   ARSH CARD ANIMATION
+========================================================= */
+
+function animateArshCard(card){
+
+  const el =
+    document.createElement("div");
+
+  el.className =
+    "gameCard " +
+    card.color;
+
+  el.textContent =
+    card.value === "Wild"
+      ? "★"
+      : card.value;
+
+
+  el.style.position =
+    "fixed";
+
+  el.style.left =
+    "50%";
+
+  el.style.top =
+    "95px";
+
+  el.style.zIndex =
+    "9999";
+
+  el.style.margin =
+    "0";
+
+  el.style.transition =
+    ".6s cubic-bezier(.2,.8,.2,1)";
+
+
+  document.body.appendChild(el);
+
+
+  requestAnimationFrame(() => {
+
+    el.style.left =
+      "50%";
+
+    el.style.top =
+      "48%";
+
+    el.style.transform =
+      "translate(-50%,-50%) rotate(-720deg) scale(.7)";
+
+    el.style.opacity =
+      "0";
+
+  });
+
+
+  setTimeout(() => {
+
+    el.remove();
+
+  },700);
+
+}
+
+
+/* =========================================================
+   FINISH ARSH TURN
+========================================================= */
+
+function finishArshTurn(){
+
+  setTimeout(() => {
+
+    playerTurn = true;
+
+    gameBusy = false;
+
+    renderPlayerHand();
+
+    setGameTurn(
+      "YOUR TURN"
+    );
+
+    updateGameCounters();
+
+  },850);
+
+}
+
+
+/* =========================================================
+   GAME OVER
+========================================================= */
+
+function finishGame(playerWon){
+
+  gameBusy = true;
+
+  const overlay =
+    document.createElement("div");
+
+  overlay.id =
+    "gameOverOverlay";
+
+
+  overlay.innerHTML = `
+
+    <div class="gameOverBox">
+
+      <div class="gameOverIcon">
+        ${playerWon ? "🏆" : "😈"}
+      </div>
+
+      <div class="gameOverTitle">
+        ${playerWon
+          ? "YOU WIN!"
+          : "ARSH WINS!"}
+      </div>
+
+      <div class="gameOverScore">
+        SCORE
+        <b>${gameScore}</b>
+      </div>
+
+      <button
+        onclick="restartCardArena()"
+      >
+        PLAY AGAIN
+      </button>
+
+      <button
+        onclick="location.reload()"
+        class="secondaryGameButton"
+      >
+        MAIN MENU
+      </button>
+
+    </div>
+
+  `;
+
+
+  document.body.appendChild(
+    overlay
+  );
+
+
+  addGameOverStyles();
+
+
+  if(playerWon){
+
+    createGameParticles();
+
+    flashGame();
+
+  }
+  else{
+
+    shakeGameTable();
+
+  }
+
+}
+
+
+/* =========================================================
+   GAME OVER CSS
+========================================================= */
+
+function addGameOverStyles(){
+
+  if(
+    document.getElementById(
+      "gameOverCSS"
+    )
+  ){
+
+    return;
+
+  }
+
+
+  const style =
+    document.createElement("style");
+
+  style.id =
+    "gameOverCSS";
+
+
+  style.textContent = `
+
+    #gameOverOverlay{
+
+      position:fixed;
+
+      inset:0;
+
+      display:flex;
+
+      align-items:center;
+
+      justify-content:center;
+
+      background:
+        rgba(0,0,0,.78);
+
+      backdrop-filter:
+        blur(10px);
+
+      z-index:20000;
+
+    }
+
+
+    .gameOverBox{
+
+      width:min(360px,88vw);
+
+      padding:35px 25px;
+
+      text-align:center;
+
+      border-radius:28px;
+
+      background:
+        linear-gradient(
+          145deg,
+          #1c1c1c,
+          #080808
+        );
+
+      border:
+        1px solid #444;
+
+      box-shadow:
+        0 30px 100px
+        rgba(0,0,0,.9);
+
+      animation:
+        gameOverIn .45s
+        cubic-bezier(.2,.8,.2,1);
+
+    }
+
+
+    @keyframes gameOverIn{
+
+      from{
+        opacity:0;
+        transform:
+          scale(.7)
+          translateY(30px);
+      }
+
+      to{
+        opacity:1;
+        transform:
+          scale(1)
+          translateY(0);
+      }
+
+    }
+
+
+    .gameOverIcon{
+
+      font-size:65px;
+
+    }
+
+
+    .gameOverTitle{
+
+      margin-top:12px;
+
+      font-size:36px;
+
+      font-weight:1000;
+
+      letter-spacing:2px;
+
+    }
+
+
+    .gameOverScore{
+
+      margin-top:18px;
+
+      color:#888;
+
+      font-size:10px;
+
+      letter-spacing:3px;
+
+    }
+
+
+    .gameOverScore b{
+
+      display:block;
+
+      margin-top:5px;
+
+      color:#ffd54a;
+
+      font-size:30px;
+
+      letter-spacing:0;
+
+    }
+
+
+    .gameOverBox button{
+
+      width:100%;
+
+      margin-top:22px;
+
+      padding:15px;
+
+      border-radius:14px;
+
+      background:
+        linear-gradient(
+          100deg,
+          #e80032,
+          #ff3154
+        );
+
+      color:white;
+
+      font-weight:1000;
+
+      letter-spacing:1px;
+
+    }
+
+
+    .gameOverBox
+    .secondaryGameButton{
+
+      margin-top:10px;
+
+      background:#202020;
+
+      border:1px solid #333;
+
+    }
+
+  `;
+
+
+  document.head.appendChild(
+    style
+  );
+
+}
+
+
+/* =========================================================
+   RESTART
+========================================================= */
+
+function restartCardArena(){
+
+  const overlay =
+    document.getElementById(
+      "gameOverOverlay"
+    );
+
+  if(overlay){
+
+    overlay.remove();
+
+  }
+
+  startRealGame();
+
+}
+
+
+/* =========================================================
+   GLOBAL
+========================================================= */
+
+window.restartCardArena =
+  restartCardArena;
+
+
+/* =========================================================
+   CARD ARENA ENGINE COMPLETE
+========================================================= */
+
+console.log(
+  "🔥 CARD ARENA GAME ENGINE LOADED"
+);
