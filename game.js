@@ -617,3 +617,753 @@ if (
 
 }
 );
+/* =========================================================
+UNO 3D ULTIMATE — GAME.JS
+PART 2/4 — CPU + GAME LOGIC + CARD HELPERS
+========================================================= */
+
+/* =========================================================
+CPU TURN
+========================================================= */
+
+function botTurn() {
+
+if (!Game.started) return;
+
+if (Game.paused) return;
+
+if (Game.currentPlayer !== "bot") {
+return;
+}
+
+showMessage("🤖 CPU is thinking...");
+
+setTimeout(() => {
+
+if (!Game.started) return;
+
+const hand = Game.bot.hand;
+
+// Find playable cards
+const playable = [];
+
+for (let i = 0; i < hand.length; i++) {
+
+  if (canPlayCard(hand[i])) {
+    playable.push(i);
+  }
+}
+
+// CPU has no playable card
+if (playable.length === 0) {
+
+  const card = drawCard(
+    "bot",
+    false
+  );
+
+  updateUI();
+
+  // Drawn card can immediately be played
+  if (
+    card &&
+    canPlayCard(card)
+  ) {
+
+    setTimeout(() => {
+
+      playBotCard(
+        Game.bot.hand.indexOf(card)
+      );
+
+    }, 500);
+
+  } else {
+
+    switchTurn();
+
+    updateUI();
+
+  }
+
+  return;
+}
+
+// Choose a card
+const index =
+  chooseBotCard(playable);
+
+playBotCard(index);
+
+}, 600);
+}
+
+/* =========================================================
+CPU CARD SELECTION
+========================================================= */
+
+function chooseBotCard(playableIndexes) {
+
+const hand = Game.bot.hand;
+
+// Prefer Wild Draw Four
+for (const index of playableIndexes) {
+
+if (
+  hand[index] &&
+  hand[index].value === "wild4"
+) {
+
+  return index;
+}
+
+}
+
+// Then normal Wild
+for (const index of playableIndexes) {
+
+if (
+  hand[index] &&
+  hand[index].value === "wild"
+) {
+
+  return index;
+}
+
+}
+
+// Prefer action cards
+for (const index of playableIndexes) {
+
+const card = hand[index];
+
+if (
+  card &&
+  (
+    card.value === "draw2" ||
+    card.value === "skip" ||
+    card.value === "reverse"
+  )
+) {
+
+  return index;
+}
+
+}
+
+// Otherwise random playable card
+return playableIndexes[
+Math.floor(
+Math.random() *
+playableIndexes.length
+)
+];
+}
+
+/* =========================================================
+CPU PLAY CARD
+========================================================= */
+
+function playBotCard(index) {
+
+if (!Game.started) return;
+
+const card =
+Game.bot.hand[index];
+
+if (!card) return;
+
+if (!canPlayCard(card)) {
+return;
+}
+
+Game.bot.hand.splice(
+index,
+1
+);
+
+playCard(card);
+
+showMessage(
+"🤖 CPU played " +
+getCardDisplayName(card)
+);
+
+updateUI();
+
+// CPU wins
+if (Game.bot.hand.length === 0) {
+
+endGame("bot");
+
+return;
+
+}
+
+// Wild
+if (card.color === "wild") {
+
+botChooseWildColor();
+
+return;
+
+}
+
+applyCardEffect(card);
+}
+
+/* =========================================================
+CPU WILD COLOR
+========================================================= */
+
+function botChooseWildColor() {
+
+const counts = {
+red: 0,
+yellow: 0,
+green: 0,
+blue: 0
+};
+
+// Count colors in CPU hand
+Game.bot.hand.forEach(card => {
+
+if (
+  counts[card.color] !== undefined
+) {
+
+  counts[card.color]++;
+}
+
+});
+
+let bestColor = "red";
+let highest = -1;
+
+COLORS.forEach(color => {
+
+if (counts[color] > highest) {
+
+  highest =
+    counts[color];
+
+  bestColor = color;
+}
+
+});
+
+Game.currentColor =
+bestColor;
+
+showMessage(
+"🤖 CPU chose " +
+bestColor.toUpperCase()
+);
+
+const last =
+getTopCard();
+
+if (
+last &&
+last.value === "wild4"
+) {
+
+switchTurn();
+
+for (let i = 0; i < 4; i++) {
+
+  drawCard(
+    Game.currentPlayer,
+    false
+  );
+}
+
+switchTurn();
+
+} else {
+
+switchTurn();
+
+}
+
+updateUI();
+}
+
+/* =========================================================
+UNO BUTTON
+========================================================= */
+
+function callUNO() {
+
+if (!Game.started) return;
+
+if (
+Game.currentPlayer !== "player"
+) {
+return;
+}
+
+if (
+Game.player.hand.length === 1
+) {
+
+showMessage("🔥 UNO!");
+
+Game.player.uno = true;
+
+return;
+
+}
+
+showMessage(
+"You can only call UNO with 1 card!"
+);
+}
+
+/* =========================================================
+DRAW BUTTON
+========================================================= */
+
+function playerDraw() {
+
+if (!Game.started) return;
+
+if (Game.paused) return;
+
+if (
+Game.currentPlayer !== "player"
+) {
+
+showMessage(
+  "Wait for your turn!"
+);
+
+return;
+
+}
+
+const card =
+drawCard(
+"player",
+false
+);
+
+updateUI();
+
+if (!card) return;
+
+// Automatically play if possible
+if (canPlayCard(card)) {
+
+showMessage(
+  "Card drawn: " +
+  getCardDisplayName(card)
+);
+
+} else {
+
+showMessage(
+  "You drew a card."
+);
+
+switchTurn();
+
+updateUI();
+
+if (
+  Game.currentPlayer === "bot"
+) {
+
+  setTimeout(
+    botTurn,
+    700
+  );
+}
+
+}
+}
+
+/* =========================================================
+PAUSE GAME
+========================================================= */
+
+function togglePause() {
+
+if (!Game.started) return;
+
+Game.paused =
+!Game.paused;
+
+updateUI();
+
+showMessage(
+Game.paused
+? "⏸ GAME PAUSED"
+: "▶ GAME RESUMED"
+);
+}
+
+/* =========================================================
+RESET GAME
+========================================================= */
+
+function resetGame() {
+
+Game.started = false;
+Game.paused = false;
+
+Game.deck = [];
+Game.discard = [];
+
+Game.player.hand = [];
+Game.bot.hand = [];
+
+Game.currentColor = null;
+Game.currentPlayer = "player";
+
+Game.winner = null;
+Game.turn = 0;
+
+updateUI();
+
+console.log(
+"UNO game reset"
+);
+}
+
+/* =========================================================
+CARD DISPLAY NAME
+========================================================= */
+
+function getCardDisplayName(card) {
+
+if (!card) {
+return "";
+}
+
+const names = {
+skip: "SKIP",
+reverse: "REVERSE",
+draw2: "DRAW +2",
+wild: "WILD",
+wild4: "WILD +4"
+};
+
+return (
+names[card.value] ||
+card.value
+);
+}
+
+/* =========================================================
+CARD SYMBOL
+========================================================= */
+
+function getCardSymbol(card) {
+
+if (!card) {
+return "";
+}
+
+const symbols = {
+
+skip: "⊘",
+
+reverse: "↻",
+
+draw2: "+2",
+
+wild: "★",
+
+wild4: "+4"
+
+};
+
+return (
+symbols[card.value] ||
+card.value
+);
+}
+
+/* =========================================================
+CARD COLOR
+========================================================= */
+
+function getCardColor(card) {
+
+if (!card) {
+return "#111827";
+}
+
+return (
+COLOR_HEX[card.color] ||
+"#111827"
+);
+}
+
+/* =========================================================
+GET PLAYER PLAYABLE CARDS
+========================================================= */
+
+function getPlayablePlayerCards() {
+
+const result = [];
+
+Game.player.hand.forEach(
+(card, index) => {
+
+  if (
+    canPlayCard(card)
+  ) {
+
+    result.push(index);
+  }
+}
+
+);
+
+return result;
+}
+
+/* =========================================================
+GET CPU PLAYABLE CARDS
+========================================================= */
+
+function getPlayableBotCards() {
+
+const result = [];
+
+Game.bot.hand.forEach(
+(card, index) => {
+
+  if (
+    canPlayCard(card)
+  ) {
+
+    result.push(index);
+  }
+}
+
+);
+
+return result;
+}
+
+/* =========================================================
+SCORE CALCULATION
+========================================================= */
+
+function getCardPoints(card) {
+
+if (!card) return 0;
+
+if (
+card.value === "wild" ||
+card.value === "wild4"
+) {
+
+return 50;
+
+}
+
+if (
+card.value === "skip" ||
+card.value === "reverse" ||
+card.value === "draw2"
+) {
+
+return 20;
+
+}
+
+const number =
+Number(card.value);
+
+if (!Number.isNaN(number)) {
+return number;
+}
+
+return 0;
+}
+
+function calculateHandScore(hand) {
+
+if (!Array.isArray(hand)) {
+return 0;
+}
+
+return hand.reduce(
+(total, card) =>
+total + getCardPoints(card),
+0
+);
+}
+
+/* =========================================================
+UPDATE SCORE
+========================================================= */
+
+function updateScores() {
+
+Game.player.currentScore =
+calculateHandScore(
+Game.player.hand
+);
+
+Game.bot.currentScore =
+calculateHandScore(
+Game.bot.hand
+);
+
+const playerScore =
+document.getElementById(
+"playerScore"
+);
+
+const botScore =
+document.getElementById(
+"botScore"
+);
+
+if (playerScore) {
+
+playerScore.textContent =
+  Game.player.currentScore;
+
+}
+
+if (botScore) {
+
+botScore.textContent =
+  Game.bot.currentScore;
+
+}
+}
+
+/* =========================================================
+TURN UI
+========================================================= */
+
+function updateTurnUI() {
+
+const turnElement =
+document.getElementById(
+"turn"
+);
+
+if (!turnElement) return;
+
+if (
+Game.currentPlayer ===
+"player"
+) {
+
+turnElement.textContent =
+  "YOUR TURN";
+
+} else {
+
+turnElement.textContent =
+  "CPU TURN";
+
+}
+}
+
+/* =========================================================
+CURRENT COLOR UI
+========================================================= */
+
+function updateColorUI() {
+
+const colorElement =
+document.getElementById(
+"currentColor"
+);
+
+if (!colorElement) return;
+
+colorElement.textContent =
+Game.currentColor
+? Game.currentColor.toUpperCase()
+: "-";
+
+colorElement.style.color =
+getColorTextColor(
+Game.currentColor
+);
+}
+
+/* =========================================================
+COLOR TEXT
+========================================================= */
+
+function getColorTextColor(color) {
+
+return (
+COLOR_HEX[color] ||
+"#ffffff"
+);
+}
+
+/* =========================================================
+GAME INFORMATION
+========================================================= */
+
+function getGameInfo() {
+
+return {
+
+started:
+  Game.started,
+
+paused:
+  Game.paused,
+
+playerCards:
+  Game.player.hand.length,
+
+botCards:
+  Game.bot.hand.length,
+
+deckCards:
+  Game.deck.length,
+
+discardCards:
+  Game.discard.length,
+
+currentColor:
+  Game.currentColor,
+
+currentPlayer:
+  Game.currentPlayer,
+
+turn:
+  Game.turn
+
+};
+}
+
+/* =========================================================
+DEBUG COMMAND
+========================================================= */
+
+window.UNO_DEBUG = {
+
+game: Game,
+
+start: startGame,
+
+draw: playerDraw,
+
+callUNO: callUNO,
+
+pause: togglePause,
+
+reset: resetGame,
+
+info: getGameInfo
+};
+
+console.log(
+"UNO 3D Engine Loaded — Part 2"
+);
