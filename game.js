@@ -6487,3 +6487,597 @@ window.addEventListener(
 
   }
 );
+/* =========================================================
+   PREMIUM CARD EFFECTS
+   ========================================================= */
+
+function applyCardStyleEffect(cardObject, cardData) {
+
+  if (!cardObject || !cardData) {
+    return;
+  }
+
+  const styleName =
+    getCardStyle();
+
+  if (styleName === "NEON") {
+
+    cardObject.scale.set(
+      1.02,
+      1.02,
+      1.02
+    );
+
+  }
+
+  if (styleName === "GOLD") {
+
+    cardObject.scale.set(
+      1.025,
+      1.025,
+      1.025
+    );
+
+  }
+
+  if (styleName === "GALAXY") {
+
+    cardObject.scale.set(
+      1.015,
+      1.015,
+      1.015
+    );
+
+  }
+}
+
+
+/* =========================================================
+   CARD HOVER ANIMATION
+   ========================================================= */
+
+function animateCardHover(cardObject, active) {
+
+  if (!cardObject) {
+    return;
+  }
+
+  const targetY =
+    active ? 0.35 : 0;
+
+  const startY =
+    cardObject.position.y;
+
+  const startTime =
+    performance.now();
+
+  const duration = 180;
+
+  function step(now) {
+
+    const progress =
+      Math.min(
+        (now - startTime) / duration,
+        1
+      );
+
+    const eased =
+      1 - Math.pow(1 - progress, 3);
+
+    cardObject.position.y =
+      startY +
+      (targetY - startY) * eased;
+
+    if (progress < 1) {
+      requestAnimationFrame(step);
+    }
+
+  }
+
+  requestAnimationFrame(step);
+}
+
+
+/* =========================================================
+   SELECTED CARD EFFECT
+   ========================================================= */
+
+function setSelectedCard(index) {
+
+  if (!playerGroup) {
+    return;
+  }
+
+  playerGroup.children.forEach(
+    (object, childIndex) => {
+
+      if (!object) {
+        return;
+      }
+
+      const selected =
+        childIndex === index;
+
+      object.userData =
+        object.userData || {};
+
+      object.userData.selected =
+        selected;
+
+      animateCardHover(
+        object,
+        selected
+      );
+
+    }
+  );
+
+  selectedCardIndex = index;
+}
+
+
+/* =========================================================
+   CARD CLICK FEEDBACK
+   ========================================================= */
+
+function cardClickFeedback(cardObject) {
+
+  if (!cardObject) {
+    return;
+  }
+
+  const originalScale =
+    cardObject.scale.clone();
+
+  cardObject.scale.multiplyScalar(1.06);
+
+  setTimeout(() => {
+
+    if (!cardObject) {
+      return;
+    }
+
+    cardObject.scale.copy(
+      originalScale
+    );
+
+  }, 130);
+}
+
+
+/* =========================================================
+   CENTER CARD PULSE
+   ========================================================= */
+
+function pulseDiscardPile() {
+
+  if (!discardGroup) {
+    return;
+  }
+
+  const originalScale =
+    discardGroup.scale.clone();
+
+  discardGroup.scale.set(
+    1.12,
+    1.12,
+    1.12
+  );
+
+  setTimeout(() => {
+
+    if (!discardGroup) {
+      return;
+    }
+
+    discardGroup.scale.copy(
+      originalScale
+    );
+
+  }, 180);
+}
+
+
+/* =========================================================
+   PLAY CARD VISUAL
+   ========================================================= */
+
+function playCardVisual(cardObject) {
+
+  if (!cardObject) {
+    return;
+  }
+
+  const startScale =
+    cardObject.scale.clone();
+
+  const startRotation =
+    cardObject.rotation.z;
+
+  const startTime =
+    performance.now();
+
+  const duration = 350;
+
+  function animateCard(now) {
+
+    const progress =
+      Math.min(
+        (now - startTime) / duration,
+        1
+      );
+
+    const eased =
+      1 -
+      Math.pow(
+        1 - progress,
+        3
+      );
+
+    cardObject.scale.set(
+      startScale.x +
+      (1.08 - startScale.x) * eased,
+
+      startScale.y +
+      (1.08 - startScale.y) * eased,
+
+      startScale.z +
+      (1.08 - startScale.z) * eased
+    );
+
+    cardObject.rotation.z =
+      startRotation +
+      Math.sin(eased * Math.PI) * 0.08;
+
+    if (progress < 1) {
+
+      requestAnimationFrame(
+        animateCard
+      );
+
+    } else {
+
+      cardObject.rotation.z =
+        startRotation;
+
+    }
+
+  }
+
+  requestAnimationFrame(
+    animateCard
+  );
+}
+
+
+/* =========================================================
+   DISCARD PULSE AFTER PLAY
+   ========================================================= */
+
+function afterCardPlayedEffect() {
+
+  pulseDiscardPile();
+
+  const arena =
+    document.getElementById("game3d");
+
+  if (!arena) {
+    return;
+  }
+
+  arena.classList.remove(
+    "cardPlayedFlash"
+  );
+
+  void arena.offsetWidth;
+
+  arena.classList.add(
+    "cardPlayedFlash"
+  );
+
+  setTimeout(() => {
+
+    arena.classList.remove(
+      "cardPlayedFlash"
+    );
+
+  }, 300);
+}
+
+
+/* =========================================================
+   PLAYER CARD POSITIONING
+   ========================================================= */
+
+function repositionPlayerCards() {
+
+  if (!playerGroup) {
+    return;
+  }
+
+  const count =
+    playerGroup.children.length;
+
+  if (count === 0) {
+    return;
+  }
+
+  const spacing =
+    count <= 7
+      ? 1.55
+      : Math.max(
+          0.78,
+          10.2 / count
+        );
+
+  const center =
+    (count - 1) / 2;
+
+  playerGroup.children.forEach(
+    (object, index) => {
+
+      const offset =
+        index - center;
+
+      const angle =
+        offset * 0.055;
+
+      object.position.x =
+        offset * spacing;
+
+      object.position.y =
+        Math.abs(offset) * 0.025;
+
+      object.position.z =
+        4.25 +
+        Math.abs(offset) * 0.12;
+
+      object.rotation.z =
+        -angle;
+
+    }
+  );
+}
+
+
+/* =========================================================
+   AI CARD POSITIONING
+   ========================================================= */
+
+function repositionAICards() {
+
+  if (!aiGroup) {
+    return;
+  }
+
+  const count =
+    aiGroup.children.length;
+
+  if (count === 0) {
+    return;
+  }
+
+  const spacing =
+    count <= 7
+      ? 1.35
+      : Math.max(
+          0.7,
+          8.8 / count
+        );
+
+  const center =
+    (count - 1) / 2;
+
+  aiGroup.children.forEach(
+    (object, index) => {
+
+      const offset =
+        index - center;
+
+      object.position.x =
+        offset * spacing;
+
+      object.position.y =
+        0;
+
+      object.position.z =
+        -4.15 +
+        Math.abs(offset) * 0.08;
+
+      object.rotation.z =
+        offset * -0.045;
+
+    }
+  );
+}
+
+
+/* =========================================================
+   CARD COUNT EFFECT
+   ========================================================= */
+
+function cardCountPulse(element) {
+
+  if (!element) {
+    return;
+  }
+
+  element.classList.remove(
+    "counterPulse"
+  );
+
+  void element.offsetWidth;
+
+  element.classList.add(
+    "counterPulse"
+  );
+
+  setTimeout(() => {
+
+    element.classList.remove(
+      "counterPulse"
+    );
+
+  }, 400);
+}
+
+
+/* =========================================================
+   TURN CHANGE EFFECT
+   ========================================================= */
+
+function turnChangeEffect() {
+
+  const turnElement =
+    document.getElementById("turnUI");
+
+  if (!turnElement) {
+    return;
+  }
+
+  turnElement.classList.remove(
+    "turnChange"
+  );
+
+  void turnElement.offsetWidth;
+
+  turnElement.classList.add(
+    "turnChange"
+  );
+
+  setTimeout(() => {
+
+    turnElement.classList.remove(
+      "turnChange"
+    );
+
+  }, 500);
+}
+
+
+/* =========================================================
+   COLOR CHANGE EFFECT
+   ========================================================= */
+
+function colorChangeEffect() {
+
+  const colorElement =
+    document.getElementById("colorUI");
+
+  if (!colorElement) {
+    return;
+  }
+
+  colorElement.classList.remove(
+    "colorChange"
+  );
+
+  void colorElement.offsetWidth;
+
+  colorElement.classList.add(
+    "colorChange"
+  );
+
+  setTimeout(() => {
+
+    colorElement.classList.remove(
+      "colorChange"
+    );
+
+  }, 500);
+}
+
+
+/* =========================================================
+   ENHANCED MESSAGE
+   ========================================================= */
+
+function arenaMessage(messageText) {
+
+  const element =
+    document.getElementById(
+      "gameMessage"
+    );
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent =
+    messageText;
+
+  element.style.opacity = "1";
+  element.style.transform =
+    "translate(-50%,-50%) scale(1.08)";
+
+  setTimeout(() => {
+
+    if (!element) {
+      return;
+    }
+
+    element.style.transform =
+      "translate(-50%,-50%) scale(1)";
+
+  }, 160);
+
+  clearTimeout(messageTimer);
+
+  messageTimer =
+    setTimeout(() => {
+
+      element.style.opacity =
+        "0";
+
+    }, 1500);
+}
+
+
+/* =========================================================
+   CONNECT VISUAL EFFECTS
+   ========================================================= */
+
+const oldShowMessage =
+  typeof showMessage === "function"
+    ? showMessage
+    : null;
+
+function showMessage(textValue) {
+
+  if (oldShowMessage) {
+
+    try {
+      oldShowMessage(textValue);
+    } catch (error) {}
+
+  }
+
+  arenaMessage(textValue);
+}
+
+
+/* =========================================================
+   FINAL VISUAL UPDATE
+   ========================================================= */
+
+function updateArenaVisuals() {
+
+  repositionPlayerCards();
+  repositionAICards();
+
+  const counter =
+    document.getElementById(
+      "cardCounter"
+    );
+
+  const aiCounter =
+    document.getElementById(
+      "aiCounter"
+    );
+
+  cardCountPulse(counter);
+  cardCountPulse(aiCounter);
+
+  turnChangeEffect();
+  colorChangeEffect();
+  }
