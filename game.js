@@ -27,10 +27,6 @@ let resizeHandler = null;
 let gameRunning = false;
 let gameOver = false;
 
-let gameMode = "OFFLINE";
-let cardStyle = "NORMAL";
-let difficulty = "PRO";
-
 let playerHand = [];
 let aiHand = [];
 
