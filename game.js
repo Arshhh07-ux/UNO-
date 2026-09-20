@@ -1367,3 +1367,1016 @@ info: getGameInfo
 console.log(
 "UNO 3D Engine Loaded — Part 2"
 );
+/* =========================================================
+UNO 3D ULTIMATE — GAME.JS
+PART 3/4 — 3D CARD RENDERING + UI + ANIMATIONS
+========================================================= */
+
+/* =========================================================
+DOM HELPERS
+========================================================= */
+
+function $(id) {
+return document.getElementById(id);
+}
+
+function createElement(tag, className = "") {
+
+const element =
+document.createElement(tag);
+
+if (className) {
+element.className = className;
+}
+
+return element;
+}
+
+/* =========================================================
+RENDER COMPLETE GAME
+========================================================= */
+
+function renderGame() {
+
+renderPlayerHand();
+
+renderBotHand();
+
+renderDiscard();
+
+renderDeck();
+
+updateScores();
+
+updateTurnUI();
+
+updateColorUI();
+
+updateGameCounters();
+}
+
+/* =========================================================
+PLAYER HAND
+========================================================= */
+
+function renderPlayerHand() {
+
+const container =
+$("playerHand") ||
+$("playerCards") ||
+$("hand");
+
+if (!container) return;
+
+container.innerHTML = "";
+
+Game.player.hand.forEach(
+(card, index) => {
+
+  const cardElement =
+    createCardElement(
+      card,
+      false,
+      index
+    );
+
+  container.appendChild(
+    cardElement
+  );
+}
+
+);
+}
+
+/* =========================================================
+BOT HAND
+========================================================= */
+
+function renderBotHand() {
+
+const container =
+$("botHand") ||
+$("botCards") ||
+$("opponentHand");
+
+if (!container) return;
+
+container.innerHTML = "";
+
+Game.bot.hand.forEach(
+(card, index) => {
+
+  const cardElement =
+    createHiddenCardElement(
+      index
+    );
+
+  container.appendChild(
+    cardElement
+  );
+}
+
+);
+}
+
+/* =========================================================
+CREATE PLAYER CARD
+========================================================= */
+
+function createCardElement(
+card,
+hidden = false,
+index = -1
+) {
+
+const cardElement =
+createElement(
+"div",
+"uno-card"
+);
+
+if (!card) {
+return cardElement;
+}
+
+cardElement.dataset.color =
+card.color;
+
+cardElement.dataset.value =
+card.value;
+
+cardElement.dataset.index =
+index;
+
+cardElement.style.setProperty(
+"--card-color",
+getCardColor(card)
+);
+
+if (
+canPlayCard(card) &&
+Game.currentPlayer === "player" &&
+Game.started
+) {
+
+cardElement.classList.add(
+  "playable"
+);
+
+cardElement.addEventListener(
+  "click",
+  () => {
+
+    playPlayerCard(index);
+
+  }
+);
+
+} else {
+
+cardElement.classList.add(
+  "not-playable"
+);
+
+}
+
+/* Card inner */
+
+const inner =
+createElement(
+"div",
+"card-inner"
+);
+
+/* Corner */
+
+const topLeft =
+createElement(
+"div",
+"card-corner top-left"
+);
+
+topLeft.textContent =
+getCardSymbol(card);
+
+/* Center */
+
+const center =
+createElement(
+"div",
+"card-center"
+);
+
+center.textContent =
+getCardSymbol(card);
+
+/* Bottom corner */
+
+const bottomRight =
+createElement(
+"div",
+"card-corner bottom-right"
+);
+
+bottomRight.textContent =
+getCardSymbol(card);
+
+inner.appendChild(
+topLeft
+);
+
+inner.appendChild(
+center
+);
+
+inner.appendChild(
+bottomRight
+);
+
+cardElement.appendChild(
+inner
+);
+
+/* Hover animation */
+
+cardElement.addEventListener(
+"mouseenter",
+() => {
+
+  if (
+    cardElement.classList.contains(
+      "playable"
+    )
+  ) {
+
+    cardElement.style.transform =
+      "translateY(-25px) rotateX(8deg) scale(1.08)";
+  }
+
+}
+
+);
+
+cardElement.addEventListener(
+"mouseleave",
+() => {
+
+  cardElement.style.transform =
+    "";
+}
+
+);
+
+return cardElement;
+}
+
+/* =========================================================
+CREATE HIDDEN CPU CARD
+========================================================= */
+
+function createHiddenCardElement(
+index
+) {
+
+const card =
+createElement(
+"div",
+"uno-card hidden-card"
+);
+
+card.dataset.index =
+index;
+
+const inner =
+createElement(
+"div",
+"card-back"
+);
+
+const logo =
+createElement(
+"div",
+"card-back-logo"
+);
+
+logo.textContent =
+"UNO";
+
+inner.appendChild(
+logo
+);
+
+card.appendChild(
+inner
+);
+
+return card;
+}
+
+/* =========================================================
+DISCARD PILE
+========================================================= */
+
+function renderDiscard() {
+
+const container =
+$("discardPile") ||
+$("discard") ||
+$("centerCard");
+
+if (!container) return;
+
+container.innerHTML = "";
+
+const top =
+getTopCard();
+
+if (!top) return;
+
+const cardElement =
+createCardElement(
+top,
+false,
+-1
+);
+
+cardElement.classList.add(
+"discard-card"
+);
+
+cardElement.classList.remove(
+"playable"
+);
+
+container.appendChild(
+cardElement
+);
+}
+
+/* =========================================================
+DECK RENDER
+========================================================= */
+
+function renderDeck() {
+
+const container =
+$("deck") ||
+$("drawPile");
+
+if (!container) return;
+
+container.innerHTML = "";
+
+const deckCard =
+createElement(
+"div",
+"uno-card hidden-card deck-card"
+);
+
+const back =
+createElement(
+"div",
+"card-back"
+);
+
+const logo =
+createElement(
+"div",
+"card-back-logo"
+);
+
+logo.textContent =
+"UNO";
+
+back.appendChild(
+logo
+);
+
+deckCard.appendChild(
+back
+);
+
+deckCard.addEventListener(
+"click",
+() => {
+
+  playerDraw();
+
+}
+
+);
+
+container.appendChild(
+deckCard
+);
+}
+
+/* =========================================================
+GAME COUNTERS
+========================================================= */
+
+function updateGameCounters() {
+
+const deckCount =
+$("deckCount");
+
+const playerCount =
+$("playerCardCount");
+
+const botCount =
+$("botCardCount");
+
+const turnCount =
+$("turnCount");
+
+if (deckCount) {
+
+deckCount.textContent =
+  Game.deck.length;
+
+}
+
+if (playerCount) {
+
+playerCount.textContent =
+  Game.player.hand.length;
+
+}
+
+if (botCount) {
+
+botCount.textContent =
+  Game.bot.hand.length;
+
+}
+
+if (turnCount) {
+
+turnCount.textContent =
+  Game.turn;
+
+}
+}
+
+/* =========================================================
+CARD PLAY ANIMATION
+========================================================= */
+
+function animateCardPlay(
+card,
+fromPlayer = true
+) {
+
+const animation =
+createElement(
+"div",
+"card-fly-animation"
+);
+
+animation.style.setProperty(
+"--card-color",
+getCardColor(card)
+);
+
+animation.textContent =
+getCardSymbol(card);
+
+document.body.appendChild(
+animation
+);
+
+if (fromPlayer) {
+
+animation.classList.add(
+  "from-player"
+);
+
+} else {
+
+animation.classList.add(
+  "from-bot"
+);
+
+}
+
+setTimeout(() => {
+
+animation.remove();
+
+}, 700);
+}
+
+/* =========================================================
+SCREEN EFFECT
+========================================================= */
+
+function screenShake(
+strength = 8,
+duration = 300
+) {
+
+const body =
+document.body;
+
+body.style.setProperty(
+"--shake-strength",
+strength + "px"
+);
+
+body.classList.add(
+"screen-shake"
+);
+
+setTimeout(() => {
+
+body.classList.remove(
+  "screen-shake"
+);
+
+}, duration);
+}
+
+/* =========================================================
+FLASH EFFECT
+========================================================= */
+
+function screenFlash(
+color = "white"
+) {
+
+const flash =
+createElement(
+"div",
+"screen-flash"
+);
+
+flash.style.background =
+color;
+
+document.body.appendChild(
+flash
+);
+
+requestAnimationFrame(() => {
+
+flash.classList.add(
+  "active"
+);
+
+});
+
+setTimeout(() => {
+
+flash.remove();
+
+}, 400);
+}
+
+/* =========================================================
+SPECIAL CARD EFFECT
+========================================================= */
+
+function specialCardEffect(
+card
+) {
+
+if (!card) return;
+
+if (
+card.value === "draw2"
+) {
+
+screenShake(
+  5,
+  250
+);
+
+}
+
+if (
+card.value === "wild4"
+) {
+
+screenShake(
+  12,
+  450
+);
+
+screenFlash(
+  "rgba(255,255,255,.8)"
+);
+
+}
+
+if (
+card.value === "skip"
+) {
+
+screenFlash(
+  "rgba(255,255,255,.35)"
+);
+
+}
+
+if (
+card.value === "reverse"
+) {
+
+screenShake(
+  4,
+  250
+);
+
+}
+}
+
+/* =========================================================
+ENHANCED PLAY PLAYER CARD
+========================================================= */
+
+const originalPlayPlayerCard =
+playPlayerCard;
+
+playPlayerCard =
+function(index) {
+
+if (!Game.started) return;
+
+const card =
+  Game.player.hand[index];
+
+if (!card) return;
+
+if (
+  !canPlayCard(card)
+) {
+
+  showMessage(
+    "❌ You cannot play this card!"
+  );
+
+  screenShake(
+    3,
+    180
+  );
+
+  return;
+}
+
+animateCardPlay(
+  card,
+  true
+);
+
+specialCardEffect(
+  card
+);
+
+originalPlayPlayerCard(
+  index
+);
+
+};
+
+/* =========================================================
+ENHANCED CPU PLAY
+========================================================= */
+
+const originalPlayBotCard =
+playBotCard;
+
+playBotCard =
+function(index) {
+
+const card =
+  Game.bot.hand[index];
+
+if (!card) return;
+
+animateCardPlay(
+  card,
+  false
+);
+
+specialCardEffect(
+  card
+);
+
+originalPlayBotCard(
+  index
+);
+
+};
+
+/* =========================================================
+WIN SCREEN
+========================================================= */
+
+function showWinnerScreen(
+winner
+) {
+
+let overlay =
+$("winnerScreen");
+
+if (!overlay) {
+
+overlay =
+  createElement(
+    "div",
+    "winner-screen"
+  );
+
+overlay.id =
+  "winnerScreen";
+
+document.body.appendChild(
+  overlay
+);
+
+}
+
+overlay.innerHTML = "";
+
+const box =
+createElement(
+"div",
+"winner-box"
+);
+
+const title =
+createElement(
+"div",
+"winner-title"
+);
+
+if (winner === "player") {
+
+title.textContent =
+  "🎉 YOU WIN!";
+
+} else {
+
+title.textContent =
+  "🤖 CPU WINS!";
+
+}
+
+const score =
+createElement(
+"div",
+"winner-score"
+);
+
+score.textContent =
+"Your cards: " +
+Game.player.hand.length +
+"  •  CPU cards: " +
+Game.bot.hand.length;
+
+const button =
+createElement(
+"button",
+"winner-button"
+);
+
+button.textContent =
+"PLAY AGAIN";
+
+button.addEventListener(
+"click",
+() => {
+
+  overlay.remove();
+
+  startGame(
+    Game.player.name
+  );
+
+}
+
+);
+
+box.appendChild(
+title
+);
+
+box.appendChild(
+score
+);
+
+box.appendChild(
+button
+);
+
+overlay.appendChild(
+box
+);
+
+requestAnimationFrame(() => {
+
+overlay.classList.add(
+  "visible"
+);
+
+});
+}
+
+/* =========================================================
+ENHANCED END GAME
+========================================================= */
+
+const originalEndGame =
+endGame;
+
+endGame =
+function(winner) {
+
+originalEndGame(
+  winner
+);
+
+setTimeout(() => {
+
+  showWinnerScreen(
+    winner
+  );
+
+}, 300);
+
+};
+
+/* =========================================================
+COLOR INDICATOR
+========================================================= */
+
+function createColorIndicator() {
+
+let indicator =
+$("colorIndicator");
+
+if (!indicator) {
+
+indicator =
+  createElement(
+    "div",
+    "color-indicator"
+  );
+
+indicator.id =
+  "colorIndicator";
+
+document.body.appendChild(
+  indicator
+);
+
+}
+
+indicator.style.background =
+getColorTextColor(
+Game.currentColor
+);
+
+indicator.textContent =
+Game.currentColor
+? Game.currentColor.toUpperCase()
+: "COLOR";
+}
+
+/* =========================================================
+ENHANCED UI UPDATE
+========================================================= */
+
+const originalUpdateUI =
+updateUI;
+
+updateUI =
+function() {
+
+originalUpdateUI();
+
+createColorIndicator();
+
+};
+
+/* =========================================================
+START SCREEN CONNECTOR
+========================================================= */
+
+function initGame() {
+
+console.log(
+"Initializing UNO 3D..."
+);
+
+const startButtons =
+document.querySelectorAll(
+"#startGame, #startBtn, .start-game, .start-button"
+);
+
+startButtons.forEach(
+button => {
+
+  button.addEventListener(
+    "click",
+    () => {
+
+      const nameInput =
+        $("playerName") ||
+        $("nameInput") ||
+        $("username");
+
+      const name =
+        nameInput
+          ? nameInput.value
+          : "PLAYER";
+
+      startGame(
+        name
+      );
+
+    }
+  );
+
+}
+
+);
+
+const drawButtons =
+document.querySelectorAll(
+"#drawBtn, #drawCard, .draw-button"
+);
+
+drawButtons.forEach(
+button => {
+
+  button.addEventListener(
+    "click",
+    playerDraw
+  );
+
+}
+
+);
+
+const pauseButtons =
+document.querySelectorAll(
+"#pauseBtn, #pauseGame, .pause-button"
+);
+
+pauseButtons.forEach(
+button => {
+
+  button.addEventListener(
+    "click",
+    togglePause
+  );
+
+}
+
+);
+
+const unoButtons =
+document.querySelectorAll(
+"#unoBtn, #unoButton, .uno-button"
+);
+
+unoButtons.forEach(
+button => {
+
+  button.addEventListener(
+    "click",
+    callUNO
+  );
+
+}
+
+);
+
+renderGame();
+
+console.log(
+"UNO 3D initialized"
+);
+}
+
+/* =========================================================
+INITIAL UI BOOT
+========================================================= */
+
+document.addEventListener(
+"DOMContentLoaded",
+() => {
+
+setTimeout(() => {
+
+  renderGame();
+
+}, 100);
+
+}
+);
+
+console.log(
+"UNO 3D Engine Loaded — Part 3"
+);
