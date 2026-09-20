@@ -5914,3 +5914,576 @@ if (typeof updateUI !== "function") {
     refreshGameUI();
   }
    }
+/* =========================================================
+   CARD CLICK + UNO + WILD COLOR
+   ========================================================= */
+
+function handleCardClick(index) {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  if (currentTurn !== "PLAYER") {
+    showMessage("WAIT FOR YOUR TURN");
+    return;
+  }
+
+  if (
+    index < 0 ||
+    index >= playerHand.length
+  ) {
+    return;
+  }
+
+  playPlayerCard(index);
+}
+
+
+/* =========================================================
+   UNO BUTTON
+   ========================================================= */
+
+function callUNO() {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  if (currentTurn !== "PLAYER") {
+    return;
+  }
+
+  if (playerHand.length !== 1) {
+    showMessage("UNO IS ONLY FOR ONE CARD");
+    return;
+  }
+
+  if (playerCalledUNO) {
+    return;
+  }
+
+  playerCalledUNO = true;
+  playerNeedsUNO = false;
+
+  const button =
+    document.getElementById("unoButton");
+
+  if (button) {
+    button.classList.remove("unoActive");
+    button.textContent = "UNO ✓";
+  }
+
+  showMessage("UNO!");
+
+  updateUI();
+}
+
+
+/* =========================================================
+   WILD COLOR CHOOSER
+   ========================================================= */
+
+function openWildChooser(index) {
+
+  if (
+    index < 0 ||
+    index >= playerHand.length
+  ) {
+    return;
+  }
+
+  selectedCardIndex = index;
+
+  const chooser =
+    document.getElementById("wildChooser");
+
+  if (!chooser) {
+    return;
+  }
+
+  chooser.style.display = "flex";
+
+  const buttons =
+    chooser.querySelectorAll("[data-color]");
+
+  buttons.forEach(button => {
+
+    button.onclick = () => {
+
+      const color =
+        button.dataset.color;
+
+      playWildPlayerCard(
+        selectedCardIndex,
+        color
+      );
+
+    };
+
+  });
+}
+
+
+/* =========================================================
+   CHOOSE WILD COLOR
+   ========================================================= */
+
+function chooseWildColor(color) {
+
+  if (
+    !color ||
+    selectedCardIndex < 0
+  ) {
+    return;
+  }
+
+  playWildPlayerCard(
+    selectedCardIndex,
+    String(color).toUpperCase()
+  );
+}
+
+
+/* =========================================================
+   BUTTON SETUP
+   ========================================================= */
+
+function setupButtons() {
+
+  const drawButton =
+    document.getElementById("drawCard");
+
+  const unoButton =
+    document.getElementById("unoButton");
+
+
+  if (drawButton) {
+
+    drawButton.onclick = () => {
+      playerDrawCard();
+    };
+
+  }
+
+
+  if (unoButton) {
+
+    unoButton.onclick = () => {
+      callUNO();
+    };
+
+  }
+
+
+  const restartButton =
+    document.getElementById("restartGame");
+
+  if (restartButton) {
+
+    restartButton.onclick = () => {
+
+      restartArenaGame();
+
+    };
+
+  }
+
+
+  const menuButton =
+    document.getElementById("backToMenu");
+
+  if (menuButton) {
+
+    menuButton.onclick = () => {
+
+      exitArenaToMenu();
+
+    };
+
+  }
+
+
+  const red =
+    document.querySelector(
+      '[data-color="RED"]'
+    );
+
+  const blue =
+    document.querySelector(
+      '[data-color="BLUE"]'
+    );
+
+  const green =
+    document.querySelector(
+      '[data-color="GREEN"]'
+    );
+
+  const yellow =
+    document.querySelector(
+      '[data-color="YELLOW"]'
+    );
+
+
+  if (red) {
+    red.onclick = () =>
+      chooseWildColor("RED");
+  }
+
+  if (blue) {
+    blue.onclick = () =>
+      chooseWildColor("BLUE");
+  }
+
+  if (green) {
+    green.onclick = () =>
+      chooseWildColor("GREEN");
+  }
+
+  if (yellow) {
+    yellow.onclick = () =>
+      chooseWildColor("YELLOW");
+  }
+}
+
+
+/* =========================================================
+   GAME END
+   ========================================================= */
+
+function finishGame(resultText) {
+
+  gameRunning = false;
+
+  clearTimeout(turnTimer);
+  clearTimeout(messageTimer);
+
+  const endScreen =
+    document.getElementById("endScreen");
+
+  if (!endScreen) {
+    return;
+  }
+
+  const result =
+    endScreen.querySelector(".resultText");
+
+  if (result) {
+    result.textContent = resultText;
+  }
+
+  endScreen.style.display = "flex";
+
+  showMessage(resultText);
+
+  if (renderer) {
+    renderer.domElement.style.pointerEvents =
+      "none";
+  }
+}
+
+
+/* =========================================================
+   RESTART GAME
+   ========================================================= */
+
+function restartArenaGame() {
+
+  clearTimeout(turnTimer);
+  clearTimeout(messageTimer);
+
+  gameRunning = true;
+
+  playerHand = [];
+  aiHand = [];
+  deck = [];
+  discardPile = [];
+
+  currentTurn = "PLAYER";
+  currentColor = null;
+
+  selectedCard = null;
+  selectedCardIndex = -1;
+
+  playerNeedsUNO = false;
+  playerCalledUNO = false;
+
+
+  const endScreen =
+    document.getElementById("endScreen");
+
+  if (endScreen) {
+    endScreen.style.display = "none";
+  }
+
+
+  if (renderer) {
+    renderer.domElement.style.pointerEvents =
+      "auto";
+  }
+
+
+  setupGame();
+
+  showMessage("NEW MATCH");
+
+  updateUI();
+}
+
+
+/* =========================================================
+   EXIT GAME
+   ========================================================= */
+
+function exitArenaToMenu() {
+
+  gameRunning = false;
+
+  clearTimeout(turnTimer);
+  clearTimeout(messageTimer);
+
+  if (renderer) {
+
+    try {
+      renderer.dispose();
+    } catch (error) {}
+
+  }
+
+  renderer = null;
+  scene = null;
+  camera = null;
+
+
+  const body =
+    document.body;
+
+  if (!body) {
+    return;
+  }
+
+
+  body.innerHTML = `
+    <div id="returnScreen"
+         style="
+           position:fixed;
+           inset:0;
+           display:flex;
+           align-items:center;
+           justify-content:center;
+           background:#05060d;
+           color:white;
+           font-family:Arial,sans-serif;
+           flex-direction:column;
+           gap:18px;
+         ">
+
+      <div style="
+        font-size:26px;
+        font-weight:800;
+        letter-spacing:3px;
+      ">
+        CARD ARENA
+      </div>
+
+      <div style="
+        opacity:.65;
+        font-size:13px;
+      ">
+        Returning to menu...
+      </div>
+
+    </div>
+  `;
+
+  setTimeout(() => {
+    location.reload();
+  }, 500);
+}
+
+
+/* =========================================================
+   BOARD SHAKE
+   ========================================================= */
+
+function shakeBoard() {
+
+  const board =
+    document.getElementById("game3d");
+
+  if (!board) {
+    return;
+  }
+
+  board.classList.remove("boardShake");
+
+  void board.offsetWidth;
+
+  board.classList.add("boardShake");
+
+  setTimeout(() => {
+    board.classList.remove("boardShake");
+  }, 450);
+}
+
+
+/* =========================================================
+   CARD HOVER EFFECT
+   ========================================================= */
+
+function highlightCard(index) {
+
+  if (!playerGroup) {
+    return;
+  }
+
+  playerGroup.children.forEach(
+    (cardObject, childIndex) => {
+
+      if (!cardObject) {
+        return;
+      }
+
+      if (childIndex === index) {
+
+        cardObject.position.y += 0.12;
+
+        cardObject.rotation.x -= 0.05;
+
+      }
+
+    }
+  );
+}
+
+
+/* =========================================================
+   SAFE MESSAGE ALIAS
+   ========================================================= */
+
+function gameMessage(textValue) {
+
+  const element =
+    document.getElementById("gameMessage");
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent =
+    textValue;
+
+  element.style.opacity = "1";
+
+  clearTimeout(messageTimer);
+
+  messageTimer = setTimeout(() => {
+
+    element.style.opacity = "0";
+
+  }, 1500);
+}
+
+
+/* =========================================================
+   FINAL UI REFRESH
+   ========================================================= */
+
+function refreshArenaUI() {
+
+  const cardCounter =
+    document.getElementById("cardCounter");
+
+  const aiCounter =
+    document.getElementById("aiCounter");
+
+  const turnUI =
+    document.getElementById("turnUI");
+
+  const colorUI =
+    document.getElementById("colorUI");
+
+
+  if (cardCounter) {
+
+    cardCounter.textContent =
+      "YOUR CARDS • " +
+      playerHand.length;
+
+  }
+
+
+  if (aiCounter) {
+
+    aiCounter.textContent =
+      "ARSH • " +
+      aiHand.length +
+      " CARDS";
+
+  }
+
+
+  if (turnUI) {
+
+    turnUI.textContent =
+      currentTurn === "PLAYER"
+        ? "YOUR TURN"
+        : "ARSH'S TURN";
+
+  }
+
+
+  if (colorUI) {
+
+    colorUI.textContent =
+      currentColor
+        ? "COLOR • " + currentColor
+        : "COLOR • —";
+
+  }
+
+
+  const drawButton =
+    document.getElementById("drawCard");
+
+  const unoButton =
+    document.getElementById("unoButton");
+
+
+  if (drawButton) {
+
+    drawButton.disabled =
+      currentTurn !== "PLAYER";
+
+  }
+
+
+  if (unoButton) {
+
+    const canCallUNO =
+      currentTurn === "PLAYER" &&
+      playerHand.length === 1 &&
+      !playerCalledUNO;
+
+    unoButton.disabled =
+      !canCallUNO;
+
+    unoButton.style.opacity =
+      canCallUNO ? "1" : ".45";
+
+  }
+}
+
+
+/* =========================================================
+   WINDOW RESIZE
+   ========================================================= */
+
+window.addEventListener(
+  "resize",
+  () => {
+
+    resizeArena();
+
+  }
+);
