@@ -7081,3 +7081,412 @@ function updateArenaVisuals() {
   turnChangeEffect();
   colorChangeEffect();
   }
+/* =========================================================
+   GAME RULES + FINAL CONNECTIONS
+   ========================================================= */
+
+function validateGameState() {
+
+  if (!gameRunning) {
+    return false;
+  }
+
+  if (!Array.isArray(playerHand)) {
+    playerHand = [];
+  }
+
+  if (!Array.isArray(aiHand)) {
+    aiHand = [];
+  }
+
+  if (!Array.isArray(deck)) {
+    deck = [];
+  }
+
+  if (!Array.isArray(discardPile)) {
+    discardPile = [];
+  }
+
+  return true;
+}
+
+
+/* =========================================================
+   PLAYER CARD PICK
+   ========================================================= */
+
+function selectPlayerCard(index) {
+
+  if (!validateGameState()) {
+    return;
+  }
+
+  if (currentTurn !== "PLAYER") {
+    showMessage("WAIT FOR YOUR TURN");
+    return;
+  }
+
+  if (
+    index < 0 ||
+    index >= playerHand.length
+  ) {
+    return;
+  }
+
+  const cardObject =
+    playerGroup &&
+    playerGroup.children[index];
+
+  if (cardObject) {
+    cardClickFeedback(cardObject);
+  }
+
+  setSelectedCard(index);
+
+  const card =
+    playerHand[index];
+
+  if (!canPlayCard(card)) {
+
+    showMessage("CARD CANNOT BE PLAYED");
+
+    shakeBoard();
+
+    return;
+  }
+
+  playPlayerCard(index);
+}
+
+
+/* =========================================================
+   SAFE POINTER OVERRIDE
+   ========================================================= */
+
+function onArenaPointerUp(event) {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  updatePointer(event);
+
+  if (!raycaster || !camera || !playerGroup) {
+    return;
+  }
+
+  raycaster.setFromCamera(
+    pointer,
+    camera
+  );
+
+  const hits =
+    raycaster.intersectObjects(
+      playerGroup.children,
+      true
+    );
+
+  if (!hits.length) {
+    return;
+  }
+
+  let object =
+    hits[0].object;
+
+  while (
+    object &&
+    object.parent !== playerGroup
+  ) {
+    object = object.parent;
+  }
+
+  if (!object) {
+    return;
+  }
+
+  const index =
+    playerGroup.children.indexOf(
+      object
+    );
+
+  if (index >= 0) {
+    selectPlayerCard(index);
+  }
+}
+
+
+/* =========================================================
+   REBIND POINTER
+   ========================================================= */
+
+function bindArenaPointer() {
+
+  if (!renderer) {
+    return;
+  }
+
+  const canvas =
+    renderer.domElement;
+
+  canvas.onpointerup =
+    onArenaPointerUp;
+
+  canvas.onpointercancel =
+    () => {
+      pointerDown = false;
+    };
+}
+
+
+/* =========================================================
+   GAME READY
+   ========================================================= */
+
+function showGameReady() {
+
+  showMessage("READY");
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    if (currentTurn === "PLAYER") {
+      showMessage("YOUR TURN");
+    } else {
+      showMessage("ARSH'S TURN");
+    }
+
+  }, 700);
+}
+
+
+/* =========================================================
+   START GAME FINALIZER
+   ========================================================= */
+
+function finalizeArenaStart() {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  setupButtons();
+  bindArenaPointer();
+
+  resizeArena();
+
+  renderHands(false);
+  renderDiscard();
+
+  refreshArenaUI();
+
+  showGameReady();
+}
+
+
+/* =========================================================
+   PATCH SETUP GAME
+   ========================================================= */
+
+function startFreshRound() {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  playerHand = [];
+  aiHand = [];
+  deck = [];
+  discardPile = [];
+
+  currentTurn = "PLAYER";
+  currentColor = null;
+
+  selectedCard = null;
+  selectedCardIndex = -1;
+
+  playerNeedsUNO = false;
+  playerCalledUNO = false;
+
+  createDeck();
+  shuffle(deck);
+
+  dealInitialCards();
+
+  startFirstDiscard();
+
+  renderHands(false);
+  renderDiscard();
+
+  refreshArenaUI();
+
+  showMessage("ROUND STARTED");
+}
+
+
+/* =========================================================
+   ENSURE INITIAL SETUP
+   ========================================================= */
+
+function ensureInitialSetup() {
+
+  if (
+    playerHand.length === 0 &&
+    aiHand.length === 0 &&
+    discardPile.length === 0
+  ) {
+
+    startFreshRound();
+
+    return;
+  }
+
+  if (
+    playerHand.length === 0 ||
+    aiHand.length === 0
+  ) {
+
+    startFreshRound();
+
+  }
+}
+
+
+/* =========================================================
+   SAFE START HOOK
+   ========================================================= */
+
+function arenaBootCheck() {
+
+  if (!gameRunning) {
+    return;
+  }
+
+  if (!scene || !camera || !renderer) {
+    return;
+  }
+
+  ensureInitialSetup();
+
+  setupButtons();
+  bindArenaPointer();
+  resizeArena();
+
+  refreshArenaUI();
+}
+
+
+/* =========================================================
+   DOM OBSERVER
+   ========================================================= */
+
+function watchArenaDOM() {
+
+  const gameArea =
+    document.getElementById(
+      "game3d"
+    );
+
+  if (!gameArea) {
+    return;
+  }
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    arenaBootCheck();
+
+  }, 100);
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    arenaBootCheck();
+
+  }, 500);
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    arenaBootCheck();
+
+  }, 1000);
+}
+
+
+/* =========================================================
+   GLOBAL ARENA HELPERS
+   ========================================================= */
+
+window.CardArena = {
+
+  start: function () {
+
+    if (typeof startGame === "function") {
+      startGame();
+    }
+
+  },
+
+  restart: function () {
+
+    if (typeof restartArenaGame === "function") {
+      restartArenaGame();
+    }
+
+  },
+
+  exit: function () {
+
+    if (typeof exitArenaToMenu === "function") {
+      exitArenaToMenu();
+    }
+
+  },
+
+  draw: function () {
+
+    if (typeof playerDrawCard === "function") {
+      playerDrawCard();
+    }
+
+  },
+
+  uno: function () {
+
+    if (typeof callUNO === "function") {
+      callUNO();
+    }
+
+  }
+
+};
+
+
+/* =========================================================
+   FINAL INITIALIZATION
+   ========================================================= */
+
+setTimeout(() => {
+
+  if (
+    typeof gameRunning !== "undefined" &&
+    gameRunning
+  ) {
+
+    watchArenaDOM();
+
+  }
+
+}, 50);
