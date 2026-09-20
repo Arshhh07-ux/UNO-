@@ -5270,3 +5270,647 @@ if (typeof showMessage !== "function") {
     showGameMessage(textValue);
   }
 }
+/* =========================================================
+   AI TURN + AI CARD LOGIC
+   ========================================================= */
+
+function aiTurn() {
+  if (!gameRunning) {
+    return;
+  }
+
+  if (currentTurn !== "AI") {
+    return;
+  }
+
+  updateUI();
+  showMessage("ARSH'S TURN");
+
+  clearTimeout(turnTimer);
+
+  turnTimer = setTimeout(() => {
+
+    if (!gameRunning || currentTurn !== "AI") {
+      return;
+    }
+
+    const playableIndexes = [];
+
+    for (let i = 0; i < aiHand.length; i++) {
+      if (canAIPlayCard(aiHand[i])) {
+        playableIndexes.push(i);
+      }
+    }
+
+    if (playableIndexes.length === 0) {
+
+      const drawnCard = drawFromDeck();
+
+      if (drawnCard) {
+        aiHand.push(drawnCard);
+
+        renderHands(true);
+        updateUI();
+
+        showMessage("ARSH DREW A CARD");
+
+        setTimeout(() => {
+
+          if (!gameRunning) {
+            return;
+          }
+
+          if (canAIPlayCard(drawnCard)) {
+
+            const newIndex =
+              aiHand.length - 1;
+
+            playAICard(newIndex);
+
+          } else {
+
+            currentTurn = "PLAYER";
+
+            updateUI();
+            showMessage("YOUR TURN");
+
+          }
+
+        }, 700);
+
+      } else {
+
+        currentTurn = "PLAYER";
+
+        updateUI();
+        showMessage("YOUR TURN");
+      }
+
+      return;
+    }
+
+    const selectedIndex =
+      chooseAICard(playableIndexes);
+
+    playAICard(selectedIndex);
+
+  }, 900);
+}
+
+
+/* =========================================================
+   AI PLAY CHECK
+   ========================================================= */
+
+function canAIPlayCard(card) {
+
+  if (!card || !currentColor) {
+    return false;
+  }
+
+  if (
+    card.type === "WILD" ||
+    card.type === "WILD4"
+  ) {
+    return true;
+  }
+
+  if (card.color === currentColor) {
+    return true;
+  }
+
+  const topCard =
+    discardPile[discardPile.length - 1];
+
+  if (!topCard) {
+    return true;
+  }
+
+  if (
+    card.type === topCard.type &&
+    card.value === topCard.value
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   AI CARD SELECTION
+   ========================================================= */
+
+function chooseAICard(indexes) {
+
+  if (!indexes || indexes.length === 0) {
+    return -1;
+  }
+
+  if (
+    String(difficulty).toUpperCase() === "EASY"
+  ) {
+
+    return indexes[
+      Math.floor(Math.random() * indexes.length)
+    ];
+  }
+
+
+  if (
+    String(difficulty).toUpperCase() === "MEDIUM"
+  ) {
+
+    for (const index of indexes) {
+
+      const card = aiHand[index];
+
+      if (
+        card.type === "WILD4" ||
+        card.type === "PLUS2"
+      ) {
+        return index;
+      }
+    }
+
+    return indexes[
+      Math.floor(Math.random() * indexes.length)
+    ];
+  }
+
+
+  /* PRO AI */
+
+  let bestIndex = indexes[0];
+  let bestValue = -1;
+
+  for (const index of indexes) {
+
+    const card = aiHand[index];
+
+    let value = 1;
+
+    if (card.type === "WILD") {
+      value = 5;
+    }
+
+    if (card.type === "WILD4") {
+      value = 10;
+    }
+
+    if (card.type === "PLUS2") {
+      value = 8;
+    }
+
+    if (
+      card.type === "SKIP" ||
+      card.type === "REVERSE"
+    ) {
+      value = 6;
+    }
+
+    if (
+      card.value !== null &&
+      Number(card.value) >= 7
+    ) {
+      value += 2;
+    }
+
+    if (value > bestValue) {
+      bestValue = value;
+      bestIndex = index;
+    }
+  }
+
+  return bestIndex;
+}
+
+
+/* =========================================================
+   PLAY AI CARD
+   ========================================================= */
+
+function playAICard(index) {
+
+  if (
+    index < 0 ||
+    index >= aiHand.length
+  ) {
+    currentTurn = "PLAYER";
+    updateUI();
+    return;
+  }
+
+  const card = aiHand[index];
+
+  aiHand.splice(index, 1);
+
+  discardPile.push(card);
+
+  if (
+    card.type === "WILD" ||
+    card.type === "WILD4"
+  ) {
+
+    currentColor =
+      chooseBestAIColor();
+
+  } else {
+
+    currentColor = card.color;
+  }
+
+  renderHands(true);
+  renderDiscard();
+  updateUI();
+
+  animatePlayedCard(card, "AI");
+
+  showMessage(
+    "ARSH PLAYED " +
+    getCardDisplayName(card)
+  );
+
+  updateSpecialCardEffect(card, "AI");
+
+
+  /* AI WINS */
+
+  if (aiHand.length === 0) {
+
+    finishGame("ARSH WINS!");
+
+    return;
+  }
+
+
+  /* AI HAS ONE CARD */
+
+  if (aiHand.length === 1) {
+
+    showMessage("ARSH: UNO!");
+
+    setTimeout(() => {
+
+      if (!gameRunning) {
+        return;
+      }
+
+      currentTurn = "PLAYER";
+
+      updateUI();
+      showMessage("YOUR TURN");
+
+    }, 900);
+
+    return;
+  }
+
+
+  /* NORMAL NEXT TURN */
+
+  setTimeout(() => {
+
+    if (!gameRunning) {
+      return;
+    }
+
+    currentTurn = "PLAYER";
+
+    updateUI();
+    showMessage("YOUR TURN");
+
+  }, 900);
+}
+
+
+/* =========================================================
+   AI COLOR CHOICE
+   ========================================================= */
+
+function chooseBestAIColor() {
+
+  const count = {
+    RED: 0,
+    BLUE: 0,
+    GREEN: 0,
+    YELLOW: 0
+  };
+
+  for (const card of aiHand) {
+
+    if (card.color && count[card.color] !== undefined) {
+      count[card.color]++;
+    }
+  }
+
+  let bestColor = "RED";
+  let highest = -1;
+
+  for (const colorName of COLOR_NAMES) {
+
+    if (count[colorName] > highest) {
+
+      highest = count[colorName];
+      bestColor = colorName;
+
+    }
+  }
+
+  return bestColor;
+}
+
+
+/* =========================================================
+   CARD DISPLAY NAME
+   ========================================================= */
+
+function getCardDisplayName(card) {
+
+  if (!card) {
+    return "CARD";
+  }
+
+  if (
+    card.type === "WILD"
+  ) {
+    return "WILD";
+  }
+
+  if (
+    card.type === "WILD4"
+  ) {
+    return "WILD +4";
+  }
+
+  if (
+    card.type === "PLUS2"
+  ) {
+    return "+2";
+  }
+
+  if (
+    card.type === "SKIP"
+  ) {
+    return "SKIP";
+  }
+
+  if (
+    card.type === "REVERSE"
+  ) {
+    return "REVERSE";
+  }
+
+  return String(card.value);
+}
+
+
+/* =========================================================
+   AI DRAW PENALTY
+   ========================================================= */
+
+function aiDrawCards(amount) {
+
+  let drawn = 0;
+
+  for (
+    let i = 0;
+    i < amount;
+    i++
+  ) {
+
+    const card = drawFromDeck();
+
+    if (!card) {
+      break;
+    }
+
+    aiHand.push(card);
+    drawn++;
+  }
+
+  renderHands(true);
+  updateUI();
+
+  return drawn;
+}
+
+
+/* =========================================================
+   PLAYER DRAW PENALTY
+   ========================================================= */
+
+function playerDrawCards(amount) {
+
+  let drawn = 0;
+
+  for (
+    let i = 0;
+    i < amount;
+    i++
+  ) {
+
+    const card = drawFromDeck();
+
+    if (!card) {
+      break;
+    }
+
+    playerHand.push(card);
+    drawn++;
+  }
+
+  renderHands(true);
+  updateUI();
+
+  return drawn;
+}
+
+
+/* =========================================================
+   SPECIAL CARD EFFECT
+   ========================================================= */
+
+function updateSpecialCardEffect(card, whoPlayed) {
+
+  if (!card) {
+    return;
+  }
+
+  if (card.type === "PLUS2") {
+
+    if (whoPlayed === "PLAYER") {
+
+      aiDrawCards(2);
+
+      showMessage("ARSH DRAWS +2");
+
+    } else {
+
+      playerDrawCards(2);
+
+      showMessage("YOU DRAW +2");
+    }
+
+    return;
+  }
+
+
+  if (card.type === "WILD4") {
+
+    if (whoPlayed === "PLAYER") {
+
+      aiDrawCards(4);
+
+      showMessage(
+        "ARSH DRAWS 4 CARDS"
+      );
+
+    } else {
+
+      playerDrawCards(4);
+
+      showMessage(
+        "YOU DRAW 4 CARDS"
+      );
+    }
+
+    return;
+  }
+
+
+  if (card.type === "SKIP") {
+
+    showMessage("TURN SKIPPED");
+
+    return;
+  }
+
+
+  if (card.type === "REVERSE") {
+
+    showMessage("REVERSE");
+
+    return;
+  }
+}
+
+
+/* =========================================================
+   AI CARD COUNT UI
+   ========================================================= */
+
+function updateAICounter() {
+
+  const element =
+    document.getElementById("aiCounter");
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent =
+    "ARSH • " + aiHand.length + " CARDS";
+}
+
+
+/* =========================================================
+   PLAYER CARD COUNT UI
+   ========================================================= */
+
+function updatePlayerCounter() {
+
+  const element =
+    document.getElementById("cardCounter");
+
+  if (!element) {
+    return;
+  }
+
+  element.textContent =
+    "YOUR CARDS • " +
+    playerHand.length;
+}
+
+
+/* =========================================================
+   TURN UI
+   ========================================================= */
+
+function updateTurnUI() {
+
+  const element =
+    document.getElementById("turnUI");
+
+  if (!element) {
+    return;
+  }
+
+  if (currentTurn === "PLAYER") {
+
+    element.textContent =
+      "YOUR TURN";
+
+    element.classList.add("playerTurn");
+    element.classList.remove("aiTurn");
+
+  } else {
+
+    element.textContent =
+      "ARSH'S TURN";
+
+    element.classList.add("aiTurn");
+    element.classList.remove("playerTurn");
+  }
+}
+
+
+/* =========================================================
+   COLOR UI
+   ========================================================= */
+
+function updateColorUI() {
+
+  const element =
+    document.getElementById("colorUI");
+
+  if (!element) {
+    return;
+  }
+
+  if (!currentColor) {
+
+    element.textContent =
+      "COLOR • —";
+
+    return;
+  }
+
+  element.textContent =
+    "COLOR • " + currentColor;
+}
+
+
+/* =========================================================
+   GAME STATE REFRESH
+   ========================================================= */
+
+function refreshGameUI() {
+
+  updatePlayerCounter();
+  updateAICounter();
+  updateTurnUI();
+  updateColorUI();
+}
+
+
+/* =========================================================
+   FALLBACK
+   ========================================================= */
+
+if (typeof updateUI !== "function") {
+
+  function updateUI() {
+    refreshGameUI();
+  }
+   }
