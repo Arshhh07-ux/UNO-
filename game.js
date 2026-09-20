@@ -2380,3 +2380,580 @@ setTimeout(() => {
 console.log(
 "UNO 3D Engine Loaded — Part 3"
 );
+/* =========================================================
+UNO 3D ULTIMATE — GAME.JS
+PART 4/4 — FINAL CONTROLS + AUDIO + POLISH
+========================================================= */
+
+/* =========================================================
+AUDIO SYSTEM
+========================================================= */
+
+const AudioSystem = {
+
+ctx: null,
+
+init() {
+
+if (this.ctx) return;
+
+try {
+
+  this.ctx =
+    new (
+      window.AudioContext ||
+      window.webkitAudioContext
+    )();
+
+} catch (error) {
+
+  console.log(
+    "Audio not supported"
+  );
+
+}
+
+},
+
+beep(
+frequency = 440,
+duration = 0.08,
+type = "sine",
+volume = 0.04
+) {
+
+if (!Game.settings.sound) {
+  return;
+}
+
+this.init();
+
+if (!this.ctx) return;
+
+try {
+
+  const oscillator =
+    this.ctx.createOscillator();
+
+  const gain =
+    this.ctx.createGain();
+
+  oscillator.type =
+    type;
+
+  oscillator.frequency.value =
+    frequency;
+
+  gain.gain.value =
+    volume;
+
+  oscillator.connect(
+    gain
+  );
+
+  gain.connect(
+    this.ctx.destination
+  );
+
+  oscillator.start();
+
+  gain.gain.exponentialRampToValueAtTime(
+    0.001,
+    this.ctx.currentTime +
+    duration
+  );
+
+  oscillator.stop(
+    this.ctx.currentTime +
+    duration
+  );
+
+} catch (error) {
+
+  console.log(
+    "Audio error"
+  );
+}
+
+},
+
+card() {
+
+this.beep(
+  520,
+  0.07,
+  "triangle",
+  0.035
+);
+
+},
+
+click() {
+
+this.beep(
+  700,
+  0.05,
+  "sine",
+  0.03
+);
+
+},
+
+win() {
+
+this.beep(
+  523,
+  0.12,
+  "triangle",
+  0.05
+);
+
+setTimeout(
+  () => this.beep(
+    659,
+    0.12,
+    "triangle",
+    0.05
+  ),
+  120
+);
+
+setTimeout(
+  () => this.beep(
+    784,
+    0.2,
+    "triangle",
+    0.05
+  ),
+  240
+);
+
+},
+
+lose() {
+
+this.beep(
+  300,
+  0.15,
+  "sawtooth",
+  0.04
+);
+
+setTimeout(
+  () => this.beep(
+    180,
+    0.25,
+    "sawtooth",
+    0.04
+  ),
+  150
+);
+
+}
+
+};
+
+/* =========================================================
+CLICK AUDIO
+========================================================= */
+
+document.addEventListener(
+"click",
+() => {
+
+AudioSystem.click();
+
+},
+{
+passive: true
+}
+);
+
+/* =========================================================
+CARD AUDIO WRAPPER
+========================================================= */
+
+const oldPlayPlayerCard =
+playPlayerCard;
+
+playPlayerCard =
+function(index) {
+
+const card =
+  Game.player.hand[index];
+
+if (
+  card &&
+  canPlayCard(card)
+) {
+
+  AudioSystem.card();
+
+}
+
+oldPlayPlayerCard(
+  index
+);
+
+};
+
+/* =========================================================
+WIN / LOSE AUDIO
+========================================================= */
+
+const oldWinnerScreen =
+showWinnerScreen;
+
+showWinnerScreen =
+function(winner) {
+
+if (winner === "player") {
+
+  AudioSystem.win();
+
+} else {
+
+  AudioSystem.lose();
+
+}
+
+oldWinnerScreen(
+  winner
+);
+
+};
+
+/* =========================================================
+KEYBOARD CONTROLS
+========================================================= */
+
+document.addEventListener(
+"keydown",
+event => {
+
+if (!Game.started) {
+  return;
+}
+
+
+// P = pause
+if (
+  event.key.toLowerCase() === "p"
+) {
+
+  togglePause();
+
+  return;
+}
+
+
+// D = draw
+if (
+  event.key.toLowerCase() === "d"
+) {
+
+  playerDraw();
+
+  return;
+}
+
+
+// U = UNO
+if (
+  event.key.toLowerCase() === "u"
+) {
+
+  callUNO();
+
+  return;
+}
+
+
+// Escape = pause
+if (
+  event.key === "Escape"
+) {
+
+  togglePause();
+
+  return;
+}
+
+}
+);
+
+/* =========================================================
+TOUCH FEEDBACK
+========================================================= */
+
+document.addEventListener(
+"touchstart",
+event => {
+
+const target =
+  event.target;
+
+if (
+  target &&
+  (
+    target.closest(
+      "button"
+    ) ||
+    target.closest(
+      ".uno-card"
+    )
+  )
+) {
+
+  target.classList.add(
+    "touch-active"
+  );
+
+  setTimeout(() => {
+
+    target.classList.remove(
+      "touch-active"
+    );
+
+  }, 150);
+}
+
+},
+{
+passive: true
+}
+);
+
+/* =========================================================
+PREVENT DOUBLE TAP ZOOM
+========================================================= */
+
+let lastTouchEnd = 0;
+
+document.addEventListener(
+"touchend",
+event => {
+
+const now =
+  Date.now();
+
+if (
+  now - lastTouchEnd <= 300
+) {
+
+  event.preventDefault();
+
+}
+
+lastTouchEnd =
+  now;
+
+},
+{
+passive: false
+}
+);
+
+/* =========================================================
+FULLSCREEN
+========================================================= */
+
+function toggleFullscreen() {
+
+if (!document.fullscreenElement) {
+
+if (
+  document.documentElement.requestFullscreen
+) {
+
+  document.documentElement
+    .requestFullscreen()
+    .catch(() => {});
+
+}
+
+} else {
+
+if (
+  document.exitFullscreen
+) {
+
+  document
+    .exitFullscreen()
+    .catch(() => {});
+
+}
+
+}
+}
+
+/* =========================================================
+FULLSCREEN BUTTON
+========================================================= */
+
+document.addEventListener(
+"DOMContentLoaded",
+() => {
+
+const buttons =
+  document.querySelectorAll(
+    "#fullscreenBtn, #fullScreen, .fullscreen-button"
+  );
+
+buttons.forEach(
+  button => {
+
+    button.addEventListener(
+      "click",
+      toggleFullscreen
+    );
+
+  }
+);
+
+}
+);
+
+/* =========================================================
+VISIBILITY PAUSE
+========================================================= */
+
+document.addEventListener(
+"visibilitychange",
+() => {
+
+if (
+  document.hidden &&
+  Game.started &&
+  !Game.paused
+) {
+
+  Game.paused = true;
+
+  updateUI();
+
+}
+
+}
+);
+
+/* =========================================================
+RESIZE HANDLER
+========================================================= */
+
+window.addEventListener(
+"resize",
+() => {
+
+updateUI();
+
+},
+{
+passive: true
+}
+);
+
+/* =========================================================
+SAFE GAME START
+========================================================= */
+
+window.startUNO =
+function(name) {
+
+AudioSystem.init();
+
+startGame(
+  name || "PLAYER"
+);
+
+};
+
+/* =========================================================
+GLOBAL GAME API
+========================================================= */
+
+window.UNO = {
+
+start: startGame,
+
+draw: playerDraw,
+
+play: playPlayerCard,
+
+pause: togglePause,
+
+reset: resetGame,
+
+uno: callUNO,
+
+fullscreen:
+toggleFullscreen,
+
+info:
+getGameInfo,
+
+game:
+Game
+
+};
+
+/* =========================================================
+FINAL INITIALIZATION
+========================================================= */
+
+function finalGameInit() {
+
+console.log(
+"================================="
+);
+
+console.log(
+" UNO 3D ULTIMATE READY"
+);
+
+console.log(
+"================================="
+);
+
+// Make sure UI exists
+setTimeout(() => {
+
+try {
+
+  renderGame();
+
+} catch (error) {
+
+  console.log(
+    "Initial render waiting for UI..."
+  );
+
+}
+
+}, 250);
+
+}
+
+if (
+document.readyState ===
+"loading"
+) {
+
+document.addEventListener(
+"DOMContentLoaded",
+finalGameInit
+);
+
+} else {
+
+finalGameInit();
+
+}
+
+/* =========================================================
+END OF GAME.JS
+========================================================= */
+
+console.log(
+"✅ game.js — ALL 4 PARTS LOADED"
+);
