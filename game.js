@@ -2816,3 +2816,7 @@ window.restartCardArena =
 console.log(
   "🔥 CARD ARENA GAME ENGINE LOADED"
 );
+console.log("GAME.JS FINAL TEST");
+console.log("Three:", typeof THREE);
+console.log("startRealGame:", typeof startRealGame);
+console.log("arshHand:", typeof arshHand);
