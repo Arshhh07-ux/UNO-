@@ -2155,3 +2155,1342 @@ function injectGameStyles() {
     style
   );
 }
+/* =========================================================
+   PART 3 — DECK + CARD SYSTEM
+   ========================================================= */
+
+/* =========================================================
+   DRAW FROM DECK
+   ========================================================= */
+
+function drawFromDeck() {
+
+  if (deck.length === 0) {
+    refillDeck();
+  }
+
+  return deck.pop();
+}
+
+
+/* =========================================================
+   REFILL DECK
+   ========================================================= */
+
+function refillDeck() {
+
+  if (discardPile.length <= 1) {
+    return;
+  }
+
+  const topCard =
+    discardPile[discardPile.length - 1];
+
+  const oldDiscard =
+    discardPile.slice(
+      0,
+      discardPile.length - 1
+    );
+
+  discardPile = [topCard];
+
+  deck = oldDiscard.map(card => ({
+    color: card.color,
+    value: card.value,
+    type: card.type
+  }));
+
+  shuffle(deck);
+}
+
+
+/* =========================================================
+   SHUFFLE
+   ========================================================= */
+
+function shuffle(array) {
+
+  for (
+    let i = array.length - 1;
+    i > 0;
+    i--
+  ) {
+
+    const j =
+      Math.floor(
+        Math.random() * (i + 1)
+      );
+
+    [
+      array[i],
+      array[j]
+    ] = [
+      array[j],
+      array[i]
+    ];
+  }
+
+  return array;
+}
+
+
+/* =========================================================
+   CARD CAN BE PLAYED
+   ========================================================= */
+
+function canPlayCard(card) {
+
+  if (!card) return false;
+
+  const topCard =
+    discardPile[
+      discardPile.length - 1
+    ];
+
+  if (!topCard) return true;
+
+  /* Wild cards can always be played */
+
+  if (
+    card.type === "wild" ||
+    card.type === "wild4"
+  ) {
+    return true;
+  }
+
+  /* Match current selected color */
+
+  if (
+    card.color === currentColor
+  ) {
+    return true;
+  }
+
+  /* Match number/action */
+
+  if (
+    card.value === topCard.value
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   PLAY PLAYER CARD
+   ========================================================= */
+
+function playPlayerCard(index) {
+
+  if (
+    currentTurn !== "PLAYER" ||
+    !gameRunning
+  ) {
+    return;
+  }
+
+  if (
+    index < 0 ||
+    index >= playerHand.length
+  ) {
+    return;
+  }
+
+  const card =
+    playerHand[index];
+
+  if (!canPlayCard(card)) {
+
+    showMessage(
+      "CAN'T PLAY THIS CARD",
+      900
+    );
+
+    shakeBoard();
+
+    return;
+  }
+
+  selectedCardIndex = index;
+  selectedCard = card;
+
+  /* Remove from hand */
+
+  playerHand.splice(
+    index,
+    1
+  );
+
+  /* Add to discard */
+
+  discardPile.push(card);
+
+  /* Wild needs color selection */
+
+  if (
+    card.type === "wild" ||
+    card.type === "wild4"
+  ) {
+
+    renderHands(false);
+    renderDiscard();
+    updateUI();
+
+    openWildChooser();
+
+    return;
+  }
+
+  currentColor = card.color;
+
+  animatePlayedCard(card);
+
+  afterPlayerCardPlayed(card);
+}
+
+
+/* =========================================================
+   AFTER PLAYER CARD
+   ========================================================= */
+
+function afterPlayerCardPlayed(card) {
+
+  playerCalledUNO = false;
+
+  /*
+   * UNO rule:
+   * When player has one card,
+   * UNO must be pressed before turn changes.
+   */
+
+  if (playerHand.length === 1) {
+
+    playerNeedsUNO = true;
+
+    showMessage(
+      "PRESS UNO!",
+      1000
+    );
+
+    updateUI();
+
+    return;
+  }
+
+  playerNeedsUNO = false;
+
+  updateSpecialCardEffect(card);
+
+  if (
+    playerHand.length === 0
+  ) {
+
+    finishGame("YOU WIN");
+
+    return;
+  }
+
+  currentTurn = "AI";
+
+  updateUI();
+
+  setTimeout(
+    aiTurn,
+    850
+  );
+}
+
+
+/* =========================================================
+   UNO BUTTON
+   ========================================================= */
+
+function callUNO() {
+
+  if (
+    currentTurn !== "PLAYER" ||
+    !gameRunning
+  ) {
+    return;
+  }
+
+  /*
+   * UNO is only valid when
+   * exactly one card remains.
+   */
+
+  if (
+    playerHand.length !== 1
+  ) {
+
+    showMessage(
+      "UNO IS NOT READY",
+      800
+    );
+
+    return;
+  }
+
+  playerCalledUNO = true;
+  playerNeedsUNO = false;
+
+  const button =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (button) {
+    button.classList.remove(
+      "ready"
+    );
+  }
+
+  showMessage(
+    "UNO!",
+    1000
+  );
+
+  updateUI();
+}
+
+
+/* =========================================================
+   DRAW PLAYER CARD
+   ========================================================= */
+
+function drawPlayerCard() {
+
+  if (
+    currentTurn !== "PLAYER" ||
+    !gameRunning
+  ) {
+    return;
+  }
+
+  /*
+   * If player forgot UNO,
+   * apply +2 penalty before drawing.
+   */
+
+  if (
+    playerNeedsUNO &&
+    !playerCalledUNO
+  ) {
+
+    showMessage(
+      "UNO MISSED! +2 CARDS",
+      1300
+    );
+
+    drawPenaltyCards(
+      playerHand,
+      2
+    );
+
+    playerNeedsUNO = false;
+    playerCalledUNO = false;
+
+    renderHands(true);
+    updateUI();
+
+    setTimeout(
+      () => {
+
+        currentTurn = "AI";
+
+        updateUI();
+
+        setTimeout(
+          aiTurn,
+          700
+        );
+
+      },
+      1000
+    );
+
+    return;
+  }
+
+  const card =
+    drawFromDeck();
+
+  if (!card) {
+    showMessage(
+      "NO CARDS",
+      700
+    );
+    return;
+  }
+
+  playerHand.push(card);
+
+  animateDrawCard(
+    card,
+    "PLAYER"
+  );
+
+  renderHands(true);
+
+  updateUI();
+
+  /*
+   * Player gets one drawn card.
+   * If playable, player may play it.
+   * Otherwise turn goes to AI.
+   */
+
+  if (
+    canPlayCard(card)
+  ) {
+
+    showMessage(
+      "CARD DRAWN — PLAY OR PASS",
+      1000
+    );
+
+    return;
+  }
+
+  currentTurn = "AI";
+
+  updateUI();
+
+  setTimeout(
+    aiTurn,
+    800
+  );
+}
+
+
+/* =========================================================
+   DRAW PENALTY
+   ========================================================= */
+
+function drawPenaltyCards(
+  hand,
+  amount
+) {
+
+  for (
+    let i = 0;
+    i < amount;
+    i++
+  ) {
+
+    const card =
+      drawFromDeck();
+
+    if (card) {
+      hand.push(card);
+    }
+  }
+
+  renderHands(true);
+  updateUI();
+}
+
+
+/* =========================================================
+   SPECIAL CARD EFFECTS
+   ========================================================= */
+
+function updateSpecialCardEffect(card) {
+
+  if (!card) return;
+
+  if (
+    card.type === "skip"
+  ) {
+
+    showMessage(
+      "SKIP!",
+      800
+    );
+
+    currentTurn = "PLAYER";
+
+    updateUI();
+
+    return;
+  }
+
+  if (
+    card.type === "reverse"
+  ) {
+
+    showMessage(
+      "REVERSE!",
+      800
+    );
+
+    /*
+     * In 2-player mode,
+     * Reverse behaves like Skip.
+     */
+
+    currentTurn = "PLAYER";
+
+    updateUI();
+
+    return;
+  }
+
+  if (
+    card.type === "draw2"
+  ) {
+
+    showMessage(
+      "+2!",
+      900
+    );
+
+    drawPenaltyCards(
+      aiHand,
+      2
+    );
+
+    currentTurn = "PLAYER";
+
+    updateUI();
+
+    return;
+  }
+
+  currentTurn = "AI";
+
+  updateUI();
+
+  setTimeout(
+    aiTurn,
+    700
+  );
+}
+
+
+/* =========================================================
+   WILD COLOR CHOOSER
+   ========================================================= */
+
+function openWildChooser() {
+
+  const chooser =
+    document.getElementById(
+      "wildChooser"
+    );
+
+  if (!chooser) return;
+
+  chooser.classList.add(
+    "show"
+  );
+
+  const buttons =
+    chooser.querySelectorAll(
+      "[data-color]"
+    );
+
+  buttons.forEach(
+    button => {
+
+      button.onclick = () => {
+
+        const color =
+          button.dataset.color;
+
+        chooseWildColor(
+          color
+        );
+
+      };
+
+    }
+  );
+}
+
+
+/* =========================================================
+   CHOOSE WILD COLOR
+   ========================================================= */
+
+function chooseWildColor(color) {
+
+  if (
+    !COLOR_NAMES.includes(color)
+  ) {
+    return;
+  }
+
+  const chooser =
+    document.getElementById(
+      "wildChooser"
+    );
+
+  if (chooser) {
+
+    chooser.classList.remove(
+      "show"
+    );
+  }
+
+  currentColor = color;
+
+  if (
+    selectedCard &&
+    selectedCard.type === "wild4"
+  ) {
+
+    showMessage(
+      "WILD +4 — " + color,
+      1100
+    );
+
+    drawPenaltyCards(
+      aiHand,
+      4
+    );
+
+    currentTurn = "PLAYER";
+
+    updateUI();
+
+  } else {
+
+    showMessage(
+      "COLOR: " + color,
+      900
+    );
+
+    currentTurn = "AI";
+
+    updateUI();
+
+    setTimeout(
+      aiTurn,
+      800
+    );
+  }
+
+  selectedCard = null;
+  selectedCardIndex = -1;
+
+  if (
+    playerHand.length === 0
+  ) {
+
+    finishGame("YOU WIN");
+
+    return;
+  }
+
+  renderHands(true);
+  renderDiscard();
+  updateUI();
+}
+
+
+/* =========================================================
+   AI TURN
+   ========================================================= */
+
+function aiTurn() {
+
+  if (
+    !gameRunning ||
+    currentTurn !== "AI"
+  ) {
+    return;
+  }
+
+  if (
+    aiHand.length === 0
+  ) {
+    finishGame("YOU WIN");
+    return;
+  }
+
+  showMessage(
+    "AI TURN",
+    650
+  );
+
+  setTimeout(
+    () => {
+
+      let playable = [];
+
+      for (
+        let i = 0;
+        i < aiHand.length;
+        i++
+      ) {
+
+        if (
+          canPlayCard(
+            aiHand[i]
+          )
+        ) {
+
+          playable.push(i);
+
+        }
+
+      }
+
+      let selectedIndex = -1;
+
+      /*
+       * PRO AI prefers action cards.
+       */
+
+      const actionIndexes =
+        playable.filter(
+          i =>
+            aiHand[i].type !== "number"
+        );
+
+      if (
+        difficulty === "PRO" &&
+        actionIndexes.length
+      ) {
+
+        selectedIndex =
+          actionIndexes[
+            Math.floor(
+              Math.random() *
+              actionIndexes.length
+            )
+          ];
+
+      } else if (
+        playable.length
+      ) {
+
+        selectedIndex =
+          playable[
+            Math.floor(
+              Math.random() *
+              playable.length
+            )
+          ];
+      }
+
+      /*
+       * No playable card:
+       * AI draws one.
+       */
+
+      if (
+        selectedIndex === -1
+      ) {
+
+        const drawn =
+          drawFromDeck();
+
+        if (drawn) {
+
+          aiHand.push(drawn);
+
+          animateDrawCard(
+            drawn,
+            "AI"
+          );
+
+          /*
+           * If drawn card is playable,
+           * AI can immediately play it.
+           */
+
+          if (
+            canPlayCard(drawn)
+          ) {
+
+            selectedIndex =
+              aiHand.length - 1;
+
+          } else {
+
+            currentTurn =
+              "PLAYER";
+
+            renderHands(true);
+            updateUI();
+
+            return;
+          }
+        }
+      }
+
+      if (
+        selectedIndex >= 0
+      ) {
+
+        playAICard(
+          selectedIndex
+        );
+
+      } else {
+
+        currentTurn =
+          "PLAYER";
+
+        renderHands(true);
+        updateUI();
+
+      }
+
+    },
+    700
+  );
+}
+
+
+/* =========================================================
+   AI PLAY CARD
+   ========================================================= */
+
+function playAICard(index) {
+
+  const card =
+    aiHand[index];
+
+  if (!card) return;
+
+  aiHand.splice(
+    index,
+    1
+  );
+
+  discardPile.push(
+    card
+  );
+
+  animatePlayedCard(
+    card
+  );
+
+  /*
+   * AI wild chooses the color
+   * it currently has most of.
+   */
+
+  if (
+    card.type === "wild" ||
+    card.type === "wild4"
+  ) {
+
+    const color =
+      chooseBestAIColor();
+
+    currentColor =
+      color;
+
+    if (
+      card.type === "wild4"
+    ) {
+
+      drawPenaltyCards(
+        playerHand,
+        4
+      );
+
+      showMessage(
+        "AI PLAYED WILD +4",
+        1200
+      );
+
+      currentTurn =
+        "PLAYER";
+
+    } else {
+
+      showMessage(
+        "AI CHANGED COLOR",
+        1000
+      );
+
+      currentTurn =
+        "PLAYER";
+    }
+
+  } else {
+
+    currentColor =
+      card.color;
+
+    if (
+      card.type === "draw2"
+    ) {
+
+      drawPenaltyCards(
+        playerHand,
+        2
+      );
+
+      showMessage(
+        "AI +2",
+        1000
+      );
+
+      currentTurn =
+        "PLAYER";
+
+    } else if (
+      card.type === "skip"
+    ) {
+
+      showMessage(
+        "AI SKIP",
+        900
+      );
+
+      currentTurn =
+        "AI";
+
+      setTimeout(
+        aiTurn,
+        700
+      );
+
+    } else if (
+      card.type === "reverse"
+    ) {
+
+      showMessage(
+        "AI REVERSE",
+        900
+      );
+
+      currentTurn =
+        "AI";
+
+      setTimeout(
+        aiTurn,
+        700
+      );
+
+    } else {
+
+      currentTurn =
+        "PLAYER";
+    }
+  }
+
+  if (
+    aiHand.length === 0
+  ) {
+
+    finishGame(
+      "AI WINS"
+    );
+
+    return;
+  }
+
+  renderHands(true);
+  renderDiscard();
+  updateUI();
+
+}
+
+
+/* =========================================================
+   AI COLOR SELECTION
+   ========================================================= */
+
+function chooseBestAIColor() {
+
+  const counts = {
+    RED:0,
+    BLUE:0,
+    GREEN:0,
+    YELLOW:0
+  };
+
+  aiHand.forEach(
+    card => {
+
+      if (
+        card.color &&
+        counts[
+          card.color
+        ] !== undefined
+      ) {
+
+        counts[
+          card.color
+        ]++;
+
+      }
+
+    }
+  );
+
+  let best =
+    "RED";
+
+  let highest =
+    -1;
+
+  COLOR_NAMES.forEach(
+    color => {
+
+      if (
+        counts[color] >
+        highest
+      ) {
+
+        highest =
+          counts[color];
+
+        best =
+          color;
+      }
+
+    }
+  );
+
+  return best;
+}
+
+
+/* =========================================================
+   GAME OVER
+   ========================================================= */
+
+function finishGame(title) {
+
+  gameRunning = false;
+
+  clearTimeout(
+    turnTimer
+  );
+
+  const endScreen =
+    document.getElementById(
+      "endScreen"
+    );
+
+  const endTitle =
+    document.getElementById(
+      "endTitle"
+    );
+
+  const endSub =
+    document.getElementById(
+      "endSub"
+    );
+
+  if (endTitle) {
+    endTitle.textContent =
+      title;
+  }
+
+  if (endSub) {
+    endSub.textContent =
+      "CARD ARENA";
+  }
+
+  if (endScreen) {
+
+    endScreen.classList.add(
+      "show"
+    );
+  }
+
+  showMessage(
+    title,
+    1500
+  );
+}
+
+
+/* =========================================================
+   CARD CLICK HANDLER
+   ========================================================= */
+
+function handleCardClick(index) {
+
+  if (
+    currentTurn !== "PLAYER" ||
+    !gameRunning
+  ) {
+    return;
+  }
+
+  playPlayerCard(
+    index
+  );
+}
+
+
+/* =========================================================
+   BUTTON SETUP
+   ========================================================= */
+
+function setupButtons() {
+
+  const drawButton =
+    document.getElementById(
+      "drawCard"
+    );
+
+  const unoButton =
+    document.getElementById(
+      "unoButton"
+    );
+
+  if (drawButton) {
+
+    drawButton.onclick =
+      drawPlayerCard;
+
+  }
+
+  if (unoButton) {
+
+    unoButton.onclick =
+      callUNO;
+
+  }
+
+  const restart =
+    document.getElementById(
+      "restartGame"
+    );
+
+  if (restart) {
+
+    restart.onclick =
+      () => {
+
+        location.reload();
+
+      };
+
+  }
+
+  const back =
+    document.getElementById(
+      "backMenu"
+    );
+
+  if (back) {
+
+    back.onclick =
+      () => {
+
+        location.reload();
+
+      };
+
+  }
+}
+
+
+/* =========================================================
+   MESSAGE
+   ========================================================= */
+
+function showMessage(
+  text,
+  duration = 900
+) {
+
+  const el =
+    document.getElementById(
+      "gameMessage"
+    );
+
+  if (!el) return;
+
+  clearTimeout(
+    messageTimer
+  );
+
+  el.textContent =
+    text;
+
+  el.classList.add(
+    "show"
+  );
+
+  messageTimer =
+    setTimeout(
+      () => {
+
+        el.classList.remove(
+          "show"
+        );
+
+      },
+      duration
+    );
+}
+
+
+/* =========================================================
+   BOARD SHAKE
+   ========================================================= */
+
+function shakeBoard() {
+
+  if (!renderer) return;
+
+  const canvas =
+    renderer.domElement;
+
+  canvas.animate(
+    [
+      {
+        transform:
+          "translate(0,0)"
+      },
+      {
+        transform:
+          "translate(-6px,2px)"
+      },
+      {
+        transform:
+          "translate(6px,-2px)"
+      },
+      {
+        transform:
+          "translate(-4px,1px)"
+      },
+      {
+        transform:
+          "translate(4px,-1px)"
+      },
+      {
+        transform:
+          "translate(0,0)"
+      }
+    ],
+    {
+      duration:260,
+      easing:"ease-out"
+    }
+  );
+}
+
+
+/* =========================================================
+   UI UPDATE
+   ========================================================= */
+
+function updateUI() {
+
+  const playerCounter =
+    document.querySelector(
+      "#cardCounter b"
+    );
+
+  const aiCounter =
+    document.querySelector(
+      "#aiCounter b"
+    );
+
+  const turnUI =
+    document.getElementById(
+      "turnUI"
+    );
+
+  const colorSpan =
+    document.querySelector(
+      "#colorUI span"
+    );
+
+  const unoButton =
+    document.getElementById(
+      "unoButton"
+    );
+
+  const drawButton =
+    document.getElementById(
+      "drawCard"
+    );
+
+  if (playerCounter) {
+
+    playerCounter.textContent =
+      playerHand.length;
+
+  }
+
+  if (aiCounter) {
+
+    aiCounter.textContent =
+      aiHand.length;
+
+  }
+
+  if (turnUI) {
+
+    turnUI.textContent =
+      currentTurn === "PLAYER"
+        ? "YOUR TURN"
+        : "AI TURN";
+
+  }
+
+  if (colorSpan) {
+
+    colorSpan.textContent =
+      currentColor || "---";
+
+    if (
+      currentColor &&
+      COLOR_HEX[currentColor]
+    ) {
+
+      colorSpan.style.color =
+        COLOR_HEX[
+          currentColor
+        ];
+
+    }
+
+  }
+
+  /*
+   * UNO button only becomes active
+   * when exactly one player card remains.
+   */
+
+  if (unoButton) {
+
+    if (
+      currentTurn === "PLAYER" &&
+      playerHand.length === 1 &&
+      !playerCalledUNO
+    ) {
+
+      unoButton.disabled = false;
+
+      unoButton.classList.add(
+        "ready"
+      );
+
+    } else {
+
+      unoButton.classList.remove(
+        "ready"
+      );
+
+      unoButton.disabled =
+        true;
+
+    }
+
+  }
+
+  if (drawButton) {
+
+    drawButton.disabled =
+      currentTurn !== "PLAYER";
+
+  }
+}
