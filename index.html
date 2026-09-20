@@ -2124,6 +2124,22 @@ function startDemoGame(){
 }
 
 <script>
+function show(id){
+
+  document.querySelectorAll(".screen").forEach(function(screen){
+    screen.classList.add("hidden");
+  });
+
+  const target = document.getElementById(id);
+
+  if(target){
+    target.classList.remove("hidden");
+  }
+}
+</script>
+
+<script>
+
 /* =====================================================
    INTRO LOADING
 ====================================================== */
