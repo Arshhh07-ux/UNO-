@@ -7989,3 +7989,21 @@ console.log(
 console.log(
   "AI Opponent: ARSH"
 );
+setTimeout(() => {
+  if (typeof THREE === "undefined") {
+    alert("THREE.JS LOAD NAHI HUA");
+    return;
+  }
+
+  if (!renderer) {
+    alert("RENDERER NAHI BANA");
+    return;
+  }
+
+  if (!scene) {
+    alert("SCENE NAHI BANI");
+    return;
+  }
+
+  alert("3D ENGINE OK");
+}, 2000);
