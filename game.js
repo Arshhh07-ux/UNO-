@@ -3595,4 +3595,770 @@ function updateHUD() {
 
     if (modeElement) {
 
-        mode
+                    modeElement.textContent =
+                gameMode;
+
+        }
+
+        const styleElement =
+            document.getElementById(
+                "cardStyleText"
+            );
+
+        if (styleElement) {
+
+            styleElement.textContent =
+                cardStyle;
+
+        }
+
+        const difficultyElement =
+            document.getElementById(
+                "difficultyText"
+            );
+
+        if (difficultyElement) {
+
+            difficultyElement.textContent =
+                difficulty;
+
+        }
+
+        const turnElement =
+            document.getElementById(
+                "turnText"
+            );
+
+        if (turnElement) {
+
+            turnElement.textContent =
+                currentTurn === "PLAYER"
+                    ? "YOUR TURN"
+                    : "ARSH'S TURN";
+
+        }
+
+        const colorElement =
+            document.getElementById(
+                "currentColor"
+            );
+
+        if (colorElement) {
+
+            colorElement.textContent =
+                currentColor ||
+                "NONE";
+
+            if (
+                currentColor &&
+                COLOR_HEX[currentColor]
+            ) {
+
+                colorElement.style.color =
+                    COLOR_HEX[
+                        currentColor
+                    ];
+
+            }
+
+        }
+
+        const statusElement =
+            document.getElementById(
+                "gameStatus"
+            );
+
+        if (statusElement) {
+
+            statusElement.textContent =
+                getGameStatusText();
+
+        }
+
+    }
+
+/* =========================================================
+   RESIZE ARENA
+   ========================================================= */
+
+function resizeArena() {
+
+    if (
+        !renderer ||
+        !camera
+    ) {
+
+        return;
+
+    }
+
+    const container =
+        renderer.domElement.parentElement;
+
+    const width =
+        container
+            ? Math.max(
+                container.clientWidth,
+                1
+            )
+            : Math.max(
+                window.innerWidth,
+                1
+            );
+
+    const height =
+        container
+            ? Math.max(
+                container.clientHeight,
+                1
+            )
+            : Math.max(
+                window.innerHeight,
+                1
+            );
+
+    camera.aspect =
+        width / height;
+
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(
+        width,
+        height,
+        false
+    );
+
+}
+
+/* =========================================================
+   POINTER POSITION
+   ========================================================= */
+
+function updatePointer(event) {
+
+    if (
+        !renderer ||
+        !renderer.domElement
+    ) {
+
+        return;
+
+    }
+
+    const rect =
+        renderer.domElement.getBoundingClientRect();
+
+    if (
+        !rect.width ||
+        !rect.height
+    ) {
+
+        return;
+
+    }
+
+    pointer.x =
+        (
+            event.clientX -
+            rect.left
+        ) /
+        rect.width *
+        2 -
+        1;
+
+    pointer.y =
+        -(
+            (
+                event.clientY -
+                rect.top
+            ) /
+            rect.height
+        ) *
+        2 +
+        1;
+
+}
+
+/* =========================================================
+   FIND PLAYER CARD
+   ========================================================= */
+
+function getPlayerCardFromPointer(
+    event
+) {
+
+    if (
+        !raycaster ||
+        !camera ||
+        !renderer
+    ) {
+
+        return -1;
+
+    }
+
+    updatePointer(event);
+
+    raycaster.setFromCamera(
+        pointer,
+        camera
+    );
+
+    const hits =
+        raycaster.intersectObjects(
+            playerCardMeshes,
+            true
+        );
+
+    if (
+        !hits.length
+    ) {
+
+        return -1;
+
+    }
+
+    let object =
+        hits[0].object;
+
+    while (
+        object &&
+        object.userData &&
+        object.userData.handIndex ===
+            undefined
+    ) {
+
+        object =
+            object.parent;
+
+    }
+
+    if (
+        object &&
+        object.userData &&
+        object.userData.handIndex !==
+            undefined
+    ) {
+
+        return Number(
+            object.userData.handIndex
+        );
+
+    }
+
+    return -1;
+
+}
+
+/* =========================================================
+   POINTER MOVE
+   ========================================================= */
+
+function handlePointerMove(
+    event
+) {
+
+    if (
+        !gameRunning ||
+        gameOver
+    ) {
+
+        return;
+
+    }
+
+    const index =
+        getPlayerCardFromPointer(
+            event
+        );
+
+    if (
+        index !== hoveredCardIndex
+    ) {
+
+        hoveredCardIndex =
+            index;
+
+        renderGame();
+
+    }
+
+}
+
+/* =========================================================
+   POINTER DOWN
+   ========================================================= */
+
+function handlePointerDown(
+    event
+) {
+
+    if (
+        !gameRunning ||
+        gameOver
+    ) {
+
+        return;
+
+    }
+
+    const index =
+        getPlayerCardFromPointer(
+            event
+        );
+
+    if (
+        index < 0
+    ) {
+
+        return;
+
+    }
+
+    selectedCardIndex =
+        index;
+
+    const card =
+        playerHand[index];
+
+    if (!card) {
+
+        return;
+
+    }
+
+    /*
+       Wild card.
+    */
+
+    if (
+        card.type === "wild" ||
+        card.type === "wild4"
+    ) {
+
+        const chosenColor =
+            window.prompt(
+                "Choose colour: RED, BLUE, GREEN or YELLOW"
+            );
+
+        if (!chosenColor) {
+
+            renderGame();
+
+            return;
+
+        }
+
+        const color =
+            safeUpper(
+                chosenColor,
+                ""
+            );
+
+        if (
+            !COLOR_NAMES.includes(
+                color
+            )
+        ) {
+
+            notifyGame(
+                "Invalid colour."
+            );
+
+            return;
+
+        }
+
+        if (
+            playPlayerCard(index)
+        ) {
+
+            playerChooseColor(
+                color
+            );
+
+        }
+
+        return;
+
+    }
+
+    /*
+       Normal card.
+    */
+
+    playPlayerCard(
+        index
+    );
+
+}
+
+/* =========================================================
+   BIND ARENA EVENTS
+   ========================================================= */
+
+function bindArenaEvents() {
+
+    if (
+        !renderer ||
+        !renderer.domElement
+    ) {
+
+        return;
+
+    }
+
+    renderer.domElement.addEventListener(
+        "pointermove",
+        handlePointerMove
+    );
+
+    renderer.domElement.addEventListener(
+        "pointerdown",
+        handlePointerDown
+    );
+
+}
+
+/* =========================================================
+   BUTTON BINDING
+   ========================================================= */
+
+function bindGameButtons() {
+
+    const startButtons =
+        document.querySelectorAll(
+            "#startGame, #startBtn, #playGame, .start-game"
+        );
+
+    startButtons.forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    startGame();
+
+                }
+            );
+
+        }
+    );
+
+    const restartButtons =
+        document.querySelectorAll(
+            "#restartGame, #restartBtn, .restart-game"
+        );
+
+    restartButtons.forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    restartGame();
+
+                }
+            );
+
+        }
+    );
+
+    const drawButtons =
+        document.querySelectorAll(
+            "#drawCard, #drawBtn, .draw-card"
+        );
+
+    drawButtons.forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    playerDrawCard();
+
+                }
+            );
+
+        }
+    );
+
+    const unoButtons =
+        document.querySelectorAll(
+            "#unoButton, #unoBtn, .uno-button"
+        );
+
+    unoButtons.forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    callPlayerUNO();
+
+                }
+            );
+
+        }
+    );
+
+    const colorButtons =
+        document.querySelectorAll(
+            "[data-color]"
+        );
+
+    colorButtons.forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                event => {
+
+                    event.preventDefault();
+
+                    const color =
+                        safeUpper(
+                            button.dataset.color,
+                            ""
+                        );
+
+                    playerChooseColor(
+                        color
+                    );
+
+                }
+            );
+
+        }
+    );
+
+}
+
+/* =========================================================
+   ANIMATION LOOP
+   ========================================================= */
+
+function startArenaAnimation() {
+
+    if (
+        animationFrame
+    ) {
+
+        return;
+
+    }
+
+    function animate(
+        time
+    ) {
+
+        animationFrame =
+            requestAnimationFrame(
+                animate
+            );
+
+        const delta =
+            lastRenderTime
+                ? (
+                    time -
+                    lastRenderTime
+                ) / 1000
+                : 0;
+
+        lastRenderTime =
+            time;
+
+        arenaClock +=
+            Math.min(
+                delta,
+                0.05
+            );
+
+        if (
+            tableRim
+        ) {
+
+            tableRim.rotation.z =
+                Math.sin(
+                    arenaClock * 0.45
+                ) *
+                0.01;
+
+        }
+
+        if (
+            deckGroup
+        ) {
+
+            deckGroup.rotation.y =
+                Math.sin(
+                    arenaClock * 0.35
+                ) *
+                0.015;
+
+        }
+
+        playerCardMeshes.forEach(
+            (
+                mesh,
+                index
+            ) => {
+
+                const selected =
+                    index ===
+                    selectedCardIndex;
+
+                const hovered =
+                    index ===
+                    hoveredCardIndex;
+
+                const targetY =
+                    selected
+                        ? 0.95
+                        : hovered
+                            ? 0.72
+                            : 0.55;
+
+                mesh.position.y +=
+                    (
+                        targetY -
+                        mesh.position.y
+                    ) *
+                    0.12;
+
+            }
+        );
+
+        if (
+            renderer &&
+            scene &&
+            camera
+        ) {
+
+            renderer.render(
+                scene,
+                camera
+            );
+
+        }
+
+    }
+
+    animationFrame =
+        requestAnimationFrame(
+            animate
+        );
+
+}
+
+/* =========================================================
+   DOM READY
+   ========================================================= */
+
+function initializeArenaGame() {
+
+    try {
+
+        getSelectedGameSettings();
+
+        if (
+            !initThreeArena()
+        ) {
+
+            return;
+
+        }
+
+        bindArenaEvents();
+
+        bindGameButtons();
+
+        updateHUD();
+
+        renderGame();
+
+        console.log(
+            "%cARSH CARD ARENA — 3D ENGINE READY",
+            "color:#ffd54a;font-size:18px;font-weight:bold"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Arena initialization error:",
+            error
+        );
+
+    }
+
+}
+
+/* =========================================================
+   RESIZE
+   ========================================================= */
+
+window.addEventListener(
+    "resize",
+    resizeArena
+);
+
+/* =========================================================
+   START WHEN HTML IS READY
+   ========================================================= */
+
+if (
+    document.readyState ===
+    "loading"
+) {
+
+    document.addEventListener(
+        "DOMContentLoaded",
+        initializeArenaGame,
+        {
+            once: true
+        }
+    );
+
+} else {
+
+    initializeArenaGame();
+
+}
+
+/* =========================================================
+   PUBLIC 3D API
+   ========================================================= */
+
+window.Arena3D = {
+
+    init:
+        initThreeArena,
+
+    render:
+        renderGame,
+
+    resize:
+        resizeArena
+
+};
+
+/* =========================================================
+   FINAL READY
+   ========================================================= */
+
+console.log(
+    "%cARSH CARD ARENA — GAME.JS COMPLETE",
+    "color:#16d98a;font-size:20px;font-weight:bold"
+);
