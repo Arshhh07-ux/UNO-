@@ -2354,4 +2354,1245 @@ function getGameStatusText() {
 
 }
 
-/* ======================================
+/* =========================================================
+   ARSH CARD ARENA — GAME.JS
+   PART 3/3 — THREE.JS 3D ARENA + RENDERING + CONTROLS
+   ========================================================= */
+
+/* =========================================================
+   THREE.JS INITIALIZATION
+   ========================================================= */
+
+let arenaRoot = null;
+let tableMesh = null;
+let tableRim = null;
+let playerGroup = null;
+let aiGroup = null;
+let deckGroup = null;
+let discardGroup = null;
+
+let playerCardMeshes = [];
+let aiCardMeshes = [];
+
+let lastRenderTime = 0;
+let arenaClock = 0;
+
+function initThreeArena() {
+
+    if (
+        typeof THREE === "undefined"
+    ) {
+
+        console.warn(
+            "Three.js is not loaded."
+        );
+
+        return false;
+
+    }
+
+    /*
+       Prevent duplicate initialization.
+    */
+
+    if (
+        renderer &&
+        scene &&
+        camera
+    ) {
+
+        return true;
+
+    }
+
+    const container =
+        document.getElementById(
+            "gameCanvas"
+        ) ||
+        document.getElementById(
+            "arenaCanvas"
+        ) ||
+        document.getElementById(
+            "threeContainer"
+        ) ||
+        document.querySelector(
+            ".game-canvas"
+        ) ||
+        document.querySelector(
+            ".arena-canvas"
+        );
+
+    /*
+       Create a fallback container
+       if index.html does not have one.
+    */
+
+    let target = container;
+
+    if (!target) {
+
+        target =
+            document.createElement(
+                "div"
+            );
+
+        target.id =
+            "gameCanvas";
+
+        target.style.position =
+            "fixed";
+
+        target.style.inset =
+            "0";
+
+        target.style.zIndex =
+            "1";
+
+        document.body.appendChild(
+            target
+        );
+
+    }
+
+    scene =
+        new THREE.Scene();
+
+    scene.background =
+        new THREE.Color(
+            0x05070d
+        );
+
+    camera =
+        new THREE.PerspectiveCamera(
+            42,
+            Math.max(
+                window.innerWidth,
+                1
+            ) /
+            Math.max(
+                window.innerHeight,
+                1
+            ),
+            0.1,
+            100
+        );
+
+    camera.position.set(
+        0,
+        12,
+        15
+    );
+
+    camera.lookAt(
+        0,
+        0,
+        0
+    );
+
+    renderer =
+        new THREE.WebGLRenderer({
+            antialias: true,
+            alpha: true,
+            powerPreference:
+                "high-performance"
+        });
+
+    renderer.setPixelRatio(
+        Math.min(
+            window.devicePixelRatio || 1,
+            2
+        )
+    );
+
+    renderer.setSize(
+        window.innerWidth,
+        window.innerHeight
+    );
+
+    renderer.shadowMap.enabled =
+        true;
+
+    renderer.shadowMap.type =
+        THREE.PCFSoftShadowMap;
+
+    target.innerHTML = "";
+
+    target.appendChild(
+        renderer.domElement
+    );
+
+    renderer.domElement.style.width =
+        "100%";
+
+    renderer.domElement.style.height =
+        "100%";
+
+    renderer.domElement.style.display =
+        "block";
+
+    raycaster =
+        new THREE.Raycaster();
+
+    pointer.set(
+        0,
+        0
+    );
+
+    createArenaLights();
+
+    createArenaTable();
+
+    createArenaGroups();
+
+    createArenaDeck();
+
+    createArenaFloor();
+
+    bindArenaPointerEvents();
+
+    resizeArena();
+
+    startArenaAnimation();
+
+    return true;
+
+}
+
+/* =========================================================
+   ARENA LIGHTING
+   ========================================================= */
+
+function createArenaLights() {
+
+    const ambient =
+        new THREE.AmbientLight(
+            0xffffff,
+            1.7
+        );
+
+    scene.add(
+        ambient
+    );
+
+    const keyLight =
+        new THREE.DirectionalLight(
+            0xffffff,
+            2.5
+        );
+
+    keyLight.position.set(
+        4,
+        10,
+        8
+    );
+
+    keyLight.castShadow =
+        true;
+
+    scene.add(
+        keyLight
+    );
+
+    const redLight =
+        new THREE.PointLight(
+            COLORS.RED,
+            35,
+            30
+        );
+
+    redLight.position.set(
+        -8,
+        4,
+        -5
+    );
+
+    scene.add(
+        redLight
+    );
+
+    const blueLight =
+        new THREE.PointLight(
+            COLORS.BLUE,
+            30,
+            30
+        );
+
+    blueLight.position.set(
+        8,
+        4,
+        2
+    );
+
+    scene.add(
+        blueLight
+    );
+
+}
+
+/* =========================================================
+   ARENA FLOOR
+   ========================================================= */
+
+function createArenaFloor() {
+
+    const geometry =
+        new THREE.CircleGeometry(
+            28,
+            64
+        );
+
+    const material =
+        new THREE.MeshStandardMaterial({
+            color: 0x03050a,
+            roughness: 0.72,
+            metalness: 0.25
+        });
+
+    const floor =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
+
+    floor.rotation.x =
+        -Math.PI / 2;
+
+    floor.position.y =
+        -0.35;
+
+    floor.receiveShadow =
+        true;
+
+    scene.add(
+        floor
+    );
+
+}
+
+/* =========================================================
+   3D TABLE
+   ========================================================= */
+
+function createArenaTable() {
+
+    const tableGeometry =
+        new THREE.CylinderGeometry(
+            10.5,
+            11.2,
+            0.65,
+            64
+        );
+
+    const tableMaterial =
+        new THREE.MeshStandardMaterial({
+            color: 0x10131c,
+            roughness: 0.38,
+            metalness: 0.5
+        });
+
+    tableMesh =
+        new THREE.Mesh(
+            tableGeometry,
+            tableMaterial
+        );
+
+    tableMesh.position.y =
+        -0.05;
+
+    tableMesh.scale.z =
+        0.72;
+
+    tableMesh.receiveShadow =
+        true;
+
+    tableMesh.castShadow =
+        true;
+
+    scene.add(
+        tableMesh
+    );
+
+    /*
+       Neon-style rim.
+    */
+
+    const rimGeometry =
+        new THREE.TorusGeometry(
+            10.5,
+            0.09,
+            12,
+            96
+        );
+
+    const rimMaterial =
+        new THREE.MeshBasicMaterial({
+            color: COLORS.RED
+        });
+
+    tableRim =
+        new THREE.Mesh(
+            rimGeometry,
+            rimMaterial
+        );
+
+    tableRim.rotation.x =
+        Math.PI / 2;
+
+    tableRim.scale.z =
+        0.72;
+
+    tableRim.position.y =
+        0.28;
+
+    scene.add(
+        tableRim
+    );
+
+}
+
+/* =========================================================
+   ARENA GROUPS
+   ========================================================= */
+
+function createArenaGroups() {
+
+    arenaRoot =
+        new THREE.Group();
+
+    playerGroup =
+        new THREE.Group();
+
+    aiGroup =
+        new THREE.Group();
+
+    deckGroup =
+        new THREE.Group();
+
+    discardGroup =
+        new THREE.Group();
+
+    arenaRoot.add(
+        playerGroup
+    );
+
+    arenaRoot.add(
+        aiGroup
+    );
+
+    arenaRoot.add(
+        deckGroup
+    );
+
+    arenaRoot.add(
+        discardGroup
+    );
+
+    scene.add(
+        arenaRoot
+    );
+
+}
+
+/* =========================================================
+   3D DECK
+   ========================================================= */
+
+function createArenaDeck() {
+
+    if (!deckGroup) {
+
+        return;
+
+    }
+
+    while (
+        deckGroup.children.length
+    ) {
+
+        deckGroup.remove(
+            deckGroup.children[0]
+        );
+
+    }
+
+    const geometry =
+        new THREE.BoxGeometry(
+            2.25,
+            0.18,
+            3.25
+        );
+
+    for (
+        let i = 0;
+        i < 5;
+        i++
+    ) {
+
+        const material =
+            new THREE.MeshStandardMaterial({
+                color: 0x151923,
+                roughness: 0.32,
+                metalness: 0.65
+            });
+
+        const card =
+            new THREE.Mesh(
+                geometry,
+                material
+            );
+
+        card.position.set(
+            -1.7,
+            0.38 +
+                i * 0.045,
+            0.1
+        );
+
+        card.rotation.y =
+            -0.04;
+
+        card.castShadow =
+            true;
+
+        deckGroup.add(
+            card
+        );
+
+    }
+
+}
+
+/* =========================================================
+   CARD MATERIAL
+   ========================================================= */
+
+function getCardMaterial(card) {
+
+    let colour =
+        COLORS.BLACK;
+
+    if (
+        card &&
+        card.color &&
+        COLORS[card.color]
+    ) {
+
+        colour =
+            COLORS[card.color];
+
+    }
+
+    /*
+       Wild cards use a bright
+       neutral material.
+    */
+
+    if (
+        card &&
+        (
+            card.type === "wild" ||
+            card.type === "wild4"
+        )
+    ) {
+
+        colour =
+            COLORS.BLACK;
+
+    }
+
+    const style =
+        CARD_STYLES[
+            card?.style ||
+            cardStyle
+        ] ||
+        CARD_STYLES.NORMAL;
+
+    const material =
+        new THREE.MeshStandardMaterial({
+            color: colour,
+            roughness:
+                style.metallic
+                    ? 0.18
+                    : 0.42,
+            metalness:
+                style.metallic
+                    ? 0.78
+                    : 0.18,
+            emissive:
+                style.glow
+                    ? colour
+                    : 0x000000,
+            emissiveIntensity:
+                style.glow
+                    ? 0.22
+                    : 0
+        });
+
+    return material;
+
+}
+
+/* =========================================================
+   CREATE 3D CARD
+   ========================================================= */
+
+function createCardMesh(
+    card,
+    faceUp = true
+) {
+
+    const group =
+        new THREE.Group();
+
+    const geometry =
+        new THREE.BoxGeometry(
+            1.45,
+            0.12,
+            2.15,
+            3,
+            1,
+            3
+        );
+
+    const material =
+        faceUp
+            ? getCardMaterial(card)
+            : new THREE.MeshStandardMaterial({
+                color: 0x111827,
+                roughness: 0.35,
+                metalness: 0.55
+            });
+
+    const mesh =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
+
+    mesh.castShadow =
+        true;
+
+    mesh.receiveShadow =
+        true;
+
+    mesh.userData.card =
+        card;
+
+    mesh.userData.isCard =
+        true;
+
+    group.add(
+        mesh
+    );
+
+    /*
+       Inner card face.
+    */
+
+    if (faceUp) {
+
+        const innerGeometry =
+            new THREE.PlaneGeometry(
+                1.08,
+                1.78
+            );
+
+        const innerMaterial =
+            new THREE.MeshBasicMaterial({
+                color:
+                    card &&
+                    card.color &&
+                    COLORS[card.color]
+                        ? COLORS[card.color]
+                        : 0x151923
+            });
+
+        const inner =
+            new THREE.Mesh(
+                innerGeometry,
+                innerMaterial
+            );
+
+        inner.position.y =
+            0.071;
+
+        inner.rotation.x =
+            -Math.PI / 2;
+
+        group.add(
+            inner
+        );
+
+    }
+
+    /*
+       Add text as a sprite.
+    */
+
+    if (faceUp) {
+
+        const label =
+            createCardLabel(
+                card
+            );
+
+        if (label) {
+
+            label.position.y =
+                0.085;
+
+            group.add(
+                label
+            );
+
+        }
+
+    }
+
+    return group;
+
+}
+
+/* =========================================================
+   CARD LABEL
+   ========================================================= */
+
+function createCardLabel(card) {
+
+    if (
+        typeof document ===
+        "undefined"
+    ) {
+
+        return null;
+
+    }
+
+    const canvas =
+        document.createElement(
+            "canvas"
+        );
+
+    canvas.width =
+        256;
+
+    canvas.height =
+        256;
+
+    const context =
+        canvas.getContext(
+            "2d"
+        );
+
+    if (!context) {
+
+        return null;
+
+    }
+
+    context.clearRect(
+        0,
+        0,
+        256,
+        256
+    );
+
+    context.fillStyle =
+        "#ffffff";
+
+    context.font =
+        "bold 82px Arial";
+
+    context.textAlign =
+        "center";
+
+    context.textBaseline =
+        "middle";
+
+    let value =
+        card?.value ||
+        "?";
+
+    if (
+        value === "REVERSE"
+    ) {
+
+        value = "↻";
+
+    }
+
+    if (
+        value === "SKIP"
+    ) {
+
+        value = "⊘";
+
+    }
+
+    context.fillText(
+        value,
+        128,
+        128
+    );
+
+    const texture =
+        new THREE.CanvasTexture(
+            canvas
+        );
+
+    texture.needsUpdate =
+        true;
+
+    const material =
+        new THREE.SpriteMaterial({
+            map: texture,
+            transparent: true
+        });
+
+    const sprite =
+        new THREE.Sprite(
+            material
+        );
+
+    sprite.scale.set(
+        1.0,
+        1.0,
+        1
+    );
+
+    return sprite;
+
+}
+
+/* =========================================================
+   CLEAR CARD GROUP
+   ========================================================= */
+
+function clearGroup(group) {
+
+    if (!group) {
+
+        return;
+
+    }
+
+    while (
+        group.children.length
+    ) {
+
+        const child =
+            group.children[
+                group.children.length - 1
+            ];
+
+        group.remove(
+            child
+        );
+
+        child.traverse(
+            object => {
+
+                if (
+                    object.geometry
+                ) {
+
+                    object.geometry.dispose();
+
+                }
+
+                if (
+                    object.material
+                ) {
+
+                    if (
+                        object.material.map
+                    ) {
+
+                        object.material.map.dispose();
+
+                    }
+
+                    object.material.dispose();
+
+                }
+
+            }
+        );
+
+    }
+
+}
+
+/* =========================================================
+   RENDER PLAYER HAND
+   ========================================================= */
+
+function renderPlayerHand() {
+
+    if (!playerGroup) {
+
+        return;
+
+    }
+
+    clearGroup(
+        playerGroup
+    );
+
+    playerCardMeshes =
+        [];
+
+    const count =
+        playerHand.length;
+
+    if (count === 0) {
+
+        return;
+
+    }
+
+    const spacing =
+        Math.min(
+            1.35,
+            8.2 /
+            Math.max(
+                count,
+                1
+            )
+        );
+
+    playerHand.forEach(
+        (card, index) => {
+
+            const mesh =
+                createCardMesh(
+                    card,
+                    true
+                );
+
+            const offset =
+                (
+                    index -
+                    (count - 1) / 2
+                ) *
+                spacing;
+
+            const selected =
+                index ===
+                selectedCardIndex;
+
+            const hovered =
+                index ===
+                hoveredCardIndex;
+
+            mesh.position.set(
+                offset,
+                selected
+                    ? 0.95
+                    : hovered
+                        ? 0.72
+                        : 0.55,
+                5.4
+            );
+
+            mesh.rotation.x =
+                -0.05;
+
+            mesh.rotation.z =
+                offset * -0.012;
+
+            mesh.userData.handIndex =
+                index;
+
+            mesh.userData.owner =
+                "PLAYER";
+
+            playerGroup.add(
+                mesh
+            );
+
+            playerCardMeshes.push(
+                mesh
+            );
+
+        }
+    );
+
+}
+
+/* =========================================================
+   RENDER AI HAND
+   ========================================================= */
+
+function renderAIHand() {
+
+    if (!aiGroup) {
+
+        return;
+
+    }
+
+    clearGroup(
+        aiGroup
+    );
+
+    aiCardMeshes =
+        [];
+
+    const count =
+        aiHand.length;
+
+    if (count === 0) {
+
+        return;
+
+    }
+
+    const spacing =
+        Math.min(
+            1.15,
+            7.5 /
+            Math.max(
+                count,
+                1
+            )
+        );
+
+    aiHand.forEach(
+        (card, index) => {
+
+            /*
+               AI cards stay hidden.
+            */
+
+            const mesh =
+                createCardMesh(
+                    card,
+                    false
+                );
+
+            const offset =
+                (
+                    index -
+                    (count - 1) / 2
+                ) *
+                spacing;
+
+            mesh.position.set(
+                offset,
+                0.5,
+                -5.15
+            );
+
+            mesh.rotation.x =
+                Math.PI +
+                0.05;
+
+            mesh.rotation.z =
+                offset * 0.012;
+
+            mesh.userData.handIndex =
+                index;
+
+            mesh.userData.owner =
+                "AI";
+
+            aiGroup.add(
+                mesh
+            );
+
+            aiCardMeshes.push(
+                mesh
+            );
+
+        }
+    );
+
+}
+
+/* =========================================================
+   RENDER DISCARD PILE
+   ========================================================= */
+
+function renderDiscardPile() {
+
+    if (!discardGroup) {
+
+        return;
+
+    }
+
+    clearGroup(
+        discardGroup
+    );
+
+    const topCard =
+        getTopCard();
+
+    if (!topCard) {
+
+        return;
+
+    }
+
+    const mesh =
+        createCardMesh(
+            topCard,
+            true
+        );
+
+    mesh.position.set(
+        1.75,
+        0.55,
+        0
+    );
+
+    mesh.rotation.x =
+        0;
+
+    mesh.rotation.z =
+        0.015;
+
+    discardGroup.add(
+        mesh
+    );
+
+    /*
+       Active colour ring.
+    */
+
+    const ringGeometry =
+        new THREE.TorusGeometry(
+            1.2,
+            0.035,
+            8,
+            48
+        );
+
+    const ringMaterial =
+        new THREE.MeshBasicMaterial({
+            color:
+                COLORS[
+                    currentColor
+                ] ||
+                COLORS.WHITE
+        });
+
+    const ring =
+        new THREE.Mesh(
+            ringGeometry,
+            ringMaterial
+        );
+
+    ring.rotation.x =
+        Math.PI / 2;
+
+    ring.position.set(
+        1.75,
+        0.29,
+        0
+    );
+
+    discardGroup.add(
+        ring
+    );
+
+}
+
+/* =========================================================
+   RENDER WHOLE 3D GAME
+   ========================================================= */
+
+function renderGame() {
+
+    try {
+
+        updateGameStatus();
+
+        if (
+            !renderer ||
+            !scene ||
+            !camera
+        ) {
+
+            initThreeArena();
+
+        }
+
+        if (
+            !scene
+        ) {
+
+            return;
+
+        }
+
+        renderPlayerHand();
+
+        renderAIHand();
+
+        renderDiscardPile();
+
+        updateHUD();
+
+    } catch (error) {
+
+        console.error(
+            "renderGame error:",
+            error
+        );
+
+    }
+
+}
+
+/* =========================================================
+   HUD UPDATE
+   ========================================================= */
+
+function updateHUD() {
+
+    const playerCount =
+        document.getElementById(
+            "playerCardCount"
+        );
+
+    const aiCount =
+        document.getElementById(
+            "aiCardCount"
+        );
+
+    const deckCount =
+        document.getElementById(
+            "deckCount"
+        );
+
+    if (playerCount) {
+
+        playerCount.textContent =
+            playerHand.length;
+
+    }
+
+    if (aiCount) {
+
+        aiCount.textContent =
+            aiHand.length;
+
+    }
+
+    if (deckCount) {
+
+        deckCount.textContent =
+            deck.length;
+
+    }
+
+    const modeElement =
+        document.getElementById(
+            "gameModeText"
+        );
+
+    if (modeElement) {
+
+        mode
