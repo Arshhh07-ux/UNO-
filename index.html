@@ -2168,47 +2168,156 @@ const introTimer =
 
 
     if(loading < 30){
+<!-- =====================================================
+     CARD STYLE
+====================================================== -->
 
-      introText.textContent =
-        "INITIALIZING ARENA";
+<section id="styles" class="screen hidden">
 
+  <button class="back" onclick="show('menu')">
+    ←
+  </button>
+
+  <div class="stylePanel">
+
+    <div class="styleTitle">
+      <h2>CHOOSE YOUR CARDS</h2>
+      <p id="styleMode">SELECT YOUR CARD COLLECTION</p>
+    </div>
+
+    <div class="cardGrid">
+
+      <button class="cardStyle selected" onclick="selectCardStyle(this,'NORMAL')">
+        <div class="preview">
+          <div class="previewCard redCard">7</div>
+          <div class="previewCard blueCard">2</div>
+        </div>
+        <div class="styleName">CLASSIC</div>
+        <div class="styleDesc">Classic Arena Cards</div>
+      </button>
+
+      <button class="cardStyle" onclick="selectCardStyle(this,'GOLD')">
+        <div class="preview">
+          <div class="previewCard goldCard">★</div>
+          <div class="previewCard goldCard">+4</div>
+        </div>
+        <div class="styleName">GOLD</div>
+        <div class="styleDesc">Premium Golden Cards</div>
+        <div class="premium">PREMIUM</div>
+      </button>
+
+      <button class="cardStyle" onclick="selectCardStyle(this,'DIAMOND')">
+        <div class="preview">
+          <div class="previewCard diamondCard">9</div>
+          <div class="previewCard diamondCard">+2</div>
+        </div>
+        <div class="styleName">DIAMOND</div>
+        <div class="styleDesc">Ice Diamond Collection</div>
+      </button>
+
+      <button class="cardStyle" onclick="selectCardStyle(this,'GALAXY')">
+        <div class="preview">
+          <div class="previewCard galaxyCard">★</div>
+          <div class="previewCard galaxyCard">5</div>
+        </div>
+        <div class="styleName">GALAXY</div>
+        <div class="styleDesc">Cosmic Card Collection</div>
+      </button>
+
+      <button class="cardStyle" onclick="selectCardStyle(this,'NEON')">
+        <div class="preview">
+          <div class="previewCard neonCard">8</div>
+          <div class="previewCard neonCard">+2</div>
+        </div>
+        <div class="styleName">NEON</div>
+        <div class="styleDesc">Cyber Neon Cards</div>
+      </button>
+
+      <button class="cardStyle" onclick="selectCardStyle(this,'SHINING')">
+        <div class="preview">
+          <div class="previewCard shiningCard">★</div>
+          <div class="previewCard shiningCard">1</div>
+        </div>
+        <div class="styleName">SHINING</div>
+        <div class="styleDesc">Animated Shining Collection</div>
+      </button>
+
+    </div>
+
+    <button
+      class="primary"
+      onclick="startRealGame()"
+    >
+      ⚡ START ARENA BATTLE
+    </button>
+
+  </div>
+
+</section>
+
+
+<script>
+/* =====================================================
+   SCREEN NAVIGATION
+====================================================== */
+
+function show(id){
+
+  document.querySelectorAll(".screen").forEach(function(screen){
+    screen.classList.add("hidden");
+  });
+
+  const target = document.getElementById(id);
+
+  if(target){
+    target.classList.remove("hidden");
+    target.classList.add("fadeIn");
+  }
+}
+
+
+/* =====================================================
+   INTRO LOADING
+====================================================== */
+
+let loading = 0;
+
+const introFill =
+  document.getElementById("loadingFill");
+
+const introText =
+  document.getElementById("loadingText");
+
+const introTimer =
+  setInterval(function(){
+
+    loading += 2;
+
+    if(introFill){
+      introFill.style.width = loading + "%";
     }
 
+    if(loading < 30){
+      introText.textContent = "INITIALIZING ARENA";
+    }
     else if(loading < 55){
-
-      introText.textContent =
-        "LOADING CARD SYSTEM";
-
+      introText.textContent = "LOADING CARD SYSTEM";
     }
-
     else if(loading < 80){
-
-      introText.textContent =
-        "PREPARING TABLE";
-
+      introText.textContent = "PREPARING TABLE";
     }
-
     else if(loading < 100){
-
-      introText.textContent =
-        "STARTING ENGINE";
-
+      introText.textContent = "STARTING ENGINE";
     }
-
     else{
-
-      introText.textContent =
-        "READY";
-
+      introText.textContent = "READY";
     }
-
 
     if(loading >= 100){
 
       clearInterval(introTimer);
 
-
-      setTimeout(() => {
+      setTimeout(function(){
 
         show("menu");
 
@@ -2217,10 +2326,12 @@ const introTimer =
     }
 
   },35);
-
 </script>
+
+
 <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
 <script src="game.js"></script>
+
 </body>
 </html>
 
