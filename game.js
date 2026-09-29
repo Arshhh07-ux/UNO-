@@ -1,2822 +1,991 @@
 /* =========================================================
-   CARD ARENA — GAME.JS
-   PART 1 — MENU / SCREEN SYSTEM
-========================================================= */
+   ARSH CARD ARENA — GAME.JS
+   PART 1/3 — CORE + CARD SYSTEM
+   ========================================================= */
 
 "use strict";
 
 /* =========================================================
-   GLOBAL GAME SETTINGS
-========================================================= */
+   THREE.JS
+   ========================================================= */
+
+let scene = null;
+let camera = null;
+let renderer = null;
+let raycaster = null;
+
+const pointer = new THREE.Vector2();
+
+let animationFrame = null;
+
+/* =========================================================
+   GAME STATE
+   ========================================================= */
+
+let gameRunning = false;
+let gameOver = false;
+
+let playerHand = [];
+let aiHand = [];
+
+let deck = [];
+let discardPile = [];
+
+let currentTurn = "PLAYER";
+let currentColor = null;
+
+let selectedCardIndex = -1;
+let hoveredCardIndex = -1;
+
+let playerCalledUNO = false;
+let playerNeedsUNO = false;
+
+let aiCalledUNO = false;
+let aiNeedsUNO = false;
+
+let pendingWildCard = null;
+
+let aiTimer = null;
+
+/* =========================================================
+   GAME SETTINGS
+   ========================================================= */
 
 let gameMode = "OFFLINE";
-let cardStyle = "RED";
+let cardStyle = "NORMAL";
 let difficulty = "PRO";
 
-let roomCode = "";
-
-
 /* =========================================================
-   SCREEN SYSTEM
-========================================================= */
-
-function show(id){
-
-  const screens =
-    document.querySelectorAll(".screen");
-
-  screens.forEach(screen => {
-    screen.classList.add("hidden");
-    screen.classList.remove("fadeIn");
-  });
-
-  const target =
-    document.getElementById(id);
-
-  if(!target){
-    console.warn("Screen not found:", id);
-    return;
-  }
-
-  target.classList.remove("hidden");
-
-  void target.offsetWidth;
-
-  target.classList.add("fadeIn");
-}
-
-
-/* =========================================================
-   OPTION SELECTOR
-========================================================= */
-
-function selectOption(button){
-
-  if(!button) return;
-
-  const parent =
-    button.parentElement;
-
-  if(parent){
-
-    parent
-      .querySelectorAll(".option")
-      .forEach(option => {
-
-        option.classList.remove("selected");
-
-        const check =
-          option.querySelector(".check");
-
-        if(check){
-          check.textContent = "";
-        }
-
-      });
-
-  }
-
-  button.classList.add("selected");
-
-  const check =
-    button.querySelector(".check");
-
-  if(check){
-    check.textContent = "✓";
-  }
-
-}
-
-
-/* =========================================================
-   DIFFICULTY
-========================================================= */
-
-function difficultySet(button){
-
-  if(!button) return;
-
-  const parent =
-    button.parentElement;
-
-  if(parent){
-
-    parent
-      .querySelectorAll("button")
-      .forEach(btn => {
-
-        btn.classList.remove("active");
-
-      });
-
-  }
-
-  button.classList.add("active");
-
-  difficulty =
-    button.textContent
-      .trim()
-      .toUpperCase();
-
-}
-
-
-/* =========================================================
-   CARD STYLE SCREEN
-========================================================= */
-
-function openStyles(mode){
-
-  gameMode = mode || "OFFLINE";
-
-  const modeText =
-    document.getElementById("styleMode");
-
-  if(modeText){
-
-    modeText.textContent =
-      gameMode === "ONLINE"
-        ? "ONLINE CARD COLLECTION"
-        : "SELECT YOUR CARD COLLECTION";
-
-  }
-
-  show("styles");
-
-}
-
-
-/* =========================================================
-   ROOM CODE
-========================================================= */
-
-function generateRoom(){
-
-  const chars =
-    "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-
-  let code = "";
-
-  for(let i=0;i<6;i++){
-
-    code +=
-      chars[
-        Math.floor(
-          Math.random() * chars.length
-        )
-      ];
-
-  }
-
-  roomCode = code;
-
-  const el =
-    document.getElementById("roomCode");
-
-  if(el){
-
-    el.textContent = roomCode;
-
-  }
-
-  toastMessage(
-    "ROOM CREATED • " + roomCode
-  );
-
-}
-
-
-/* =========================================================
-   JOIN ROOM
-========================================================= */
-
-function joinRoom(){
-
-  const input =
-    document.getElementById("joinCode");
-
-  if(!input) return;
-
-  const code =
-    input.value
-      .trim()
-      .toUpperCase();
-
-  if(code.length < 4){
-
-    toastMessage(
-      "ENTER A VALID ROOM CODE"
-    );
-
-    input.focus();
-
-    return;
-
-  }
-
-  roomCode = code;
-
-  toastMessage(
-    "ROOM " + code + " JOINED"
-  );
-
-  setTimeout(() => {
-
-    openStyles("ONLINE");
-
-  },700);
-
-}
-
-
-/* =========================================================
-   SIMPLE TOAST
-========================================================= */
-
-function toastMessage(message){
-
-  let toast =
-    document.getElementById("arenaToast");
-
-  if(!toast){
-
-    toast =
-      document.createElement("div");
-
-    toast.id =
-      "arenaToast";
-
-    toast.style.position = "fixed";
-    toast.style.left = "50%";
-    toast.style.bottom = "35px";
-
-    toast.style.transform =
-      "translateX(-50%)";
-
-    toast.style.padding =
-      "13px 20px";
-
-    toast.style.borderRadius =
-      "14px";
-
-    toast.style.background =
-      "rgba(20,20,20,.95)";
-
-    toast.style.border =
-      "1px solid rgba(255,255,255,.15)";
-
-    toast.style.color =
-      "white";
-
-    toast.style.fontSize =
-      "12px";
-
-    toast.style.fontWeight =
-      "900";
-
-    toast.style.letterSpacing =
-      "1px";
-
-    toast.style.zIndex =
-      "99999";
-
-    toast.style.opacity =
-      "0";
-
-    toast.style.transition =
-      ".25s ease";
-
-    document.body.appendChild(toast);
-
-  }
-
-  toast.textContent =
-    message;
-
-  toast.style.opacity = "1";
-
-  clearTimeout(
-    toastMessage.timer
-  );
-
-  toastMessage.timer =
-    setTimeout(() => {
-
-      toast.style.opacity = "0";
-
-    },1800);
-
-}
-
-
-/* =========================================================
-   CARD STYLE SELECTION
-========================================================= */
-
-document.addEventListener(
-  "click",
-  function(event){
-
-    const card =
-      event.target.closest(".cardStyle");
-
-    if(!card) return;
-
-    document
-      .querySelectorAll(".cardStyle")
-      .forEach(item => {
-
-        item.classList.remove("selected");
-
-      });
-
-    card.classList.add("selected");
-
-    const name =
-      card.querySelector(".styleName");
-
-    if(name){
-
-      cardStyle =
-        name.textContent
-          .trim()
-          .toUpperCase();
-
-    }
-
-    toastMessage(
-      "CARD STYLE SELECTED"
-    );
-
-  }
-);
-
-
-/* =========================================================
-   INTRO
-========================================================= */
-
-function startArenaIntro(){
-
-  const intro =
-    document.getElementById("intro");
-
-  const menu =
-    document.getElementById("menu");
-
-  if(!intro || !menu) return;
-
-  show("intro");
-
-}
-
-
-/* =========================================================
-   SAFE START
-========================================================= */
-
-window.addEventListener(
-  "load",
-  () => {
-
-    /*
-      We intentionally DO NOT start
-      the 3D game here.
-
-      The player must first go:
-
-      INTRO
-        ↓
-      MENU
-        ↓
-      OFFLINE
-        ↓
-      CARD STYLE
-        ↓
-      GAME
-    */
-
-    console.log(
-      "CARD ARENA ENGINE READY"
-    );
-
-  }
-);
-
-
-/* =========================================================
-   GLOBAL ACCESS
-========================================================= */
-
-window.show = show;
-window.selectOption = selectOption;
-window.difficultySet = difficultySet;
-window.openStyles = openStyles;
-window.generateRoom = generateRoom;
-window.joinRoom = joinRoom;
-
-
-/* =========================================================
-   PART 1 END
-========================================================= */
-/* =========================================================
-   CARD ARENA — PART 2
-   3D GAME TABLE + UNO DECK
-========================================================= */
-
-const COLORS = ["red", "yellow", "green", "blue"];
-
-const UNO_VALUES = [
-  "0","1","2","3","4","5","6","7","8","9",
-  "+2","Skip","Reverse"
+   COLORS
+   ========================================================= */
+
+const COLOR_NAMES = [
+    "RED",
+    "BLUE",
+    "GREEN",
+    "YELLOW"
 ];
 
-let gameDeck = [];
-let playerHand = [];
-let arshHand = [];
+const COLORS = {
 
-let currentCard = {
-  color: "red",
-  value: "7"
+    RED: 0xff1744,
+
+    BLUE: 0x1677ff,
+
+    GREEN: 0x16c96b,
+
+    YELLOW: 0xffc400,
+
+    BLACK: 0x10131c,
+
+    WHITE: 0xffffff,
+
+    GOLD: 0xffd54a
+
 };
 
-let gameScore = 0;
-let playerTurn = true;
-let gameBusy = false;
+const COLOR_HEX = {
 
+    RED: "#ff1744",
+
+    BLUE: "#1677ff",
+
+    GREEN: "#16c96b",
+
+    YELLOW: "#ffc400"
+
+};
 
 /* =========================================================
-   CREATE REAL UNO DECK
-========================================================= */
+   CARD STYLES
+   ========================================================= */
 
-function createGameDeck(){
+const CARD_STYLES = {
 
-  gameDeck = [];
+    NORMAL: {
 
-  COLORS.forEach(color => {
+        name: "NORMAL",
 
-    /* One zero */
+        glow: false,
 
-    gameDeck.push({
-      color: color,
-      value: "0"
-    });
+        metallic: false,
 
-    /* Two of every 1-9 */
+        rainbow: false
 
-    for(let n = 1; n <= 9; n++){
+    },
 
-      gameDeck.push({
-        color: color,
-        value: String(n)
-      });
+    SHINING: {
 
-      gameDeck.push({
-        color: color,
-        value: String(n)
-      });
+        name: "SHINING",
+
+        glow: true,
+
+        metallic: false,
+
+        rainbow: false
+
+    },
+
+    GOLD: {
+
+        name: "GOLD",
+
+        glow: true,
+
+        metallic: true,
+
+        rainbow: false
+
+    },
+
+    NEON: {
+
+        name: "NEON",
+
+        glow: true,
+
+        metallic: false,
+
+        rainbow: true
+
+    },
+
+    GALAXY: {
+
+        name: "GALAXY",
+
+        glow: true,
+
+        metallic: true,
+
+        rainbow: true
 
     }
 
-    /* Two action cards */
+};
 
-    ["+2","Skip","Reverse"].forEach(value => {
+/* =========================================================
+   CARD VALUES
+   ========================================================= */
 
-      gameDeck.push({
-        color: color,
-        value: value
-      });
+const CARD_VALUES = {
 
-      gameDeck.push({
-        color: color,
-        value: value
-      });
+    ZERO: "0",
 
-    });
+    SKIP: "SKIP",
 
-  });
+    REVERSE: "REVERSE",
 
+    DRAW2: "+2",
 
-  /* 4 Wild */
+    WILD: "WILD",
 
-  for(let i = 0; i < 4; i++){
+    WILD4: "+4"
 
-    gameDeck.push({
-      color: "black",
-      value: "Wild"
-    });
+};
 
-  }
+/* =========================================================
+   UTILITY
+   ========================================================= */
 
+function safeUpper(value, fallback) {
 
-  /* 4 Wild +4 */
+    if (
+        value === undefined ||
+        value === null ||
+        value === ""
+    ) {
 
-  for(let i = 0; i < 4; i++){
+        return fallback;
 
-    gameDeck.push({
-      color: "black",
-      value: "+4"
-    });
+    }
 
-  }
-
-
-  shuffleGameDeck();
+    return String(value).toUpperCase();
 
 }
 
+/* =========================================================
+   READ SETTINGS FROM INDEX.HTML
+   ========================================================= */
+
+function getSelectedGameSettings() {
+
+    try {
+
+        if (
+            typeof window.gameMode !== "undefined" &&
+            window.gameMode
+        ) {
+
+            gameMode =
+                safeUpper(
+                    window.gameMode,
+                    "OFFLINE"
+                );
+
+        }
+
+        if (
+            typeof window.cardStyle !== "undefined" &&
+            window.cardStyle
+        ) {
+
+            cardStyle =
+                safeUpper(
+                    window.cardStyle,
+                    "NORMAL"
+                );
+
+        }
+
+        if (
+            typeof window.difficulty !== "undefined" &&
+            window.difficulty
+        ) {
+
+            difficulty =
+                safeUpper(
+                    window.difficulty,
+                    "PRO"
+                );
+
+        }
+
+    } catch (error) {
+
+        console.warn(
+            "Could not read game settings:",
+            error
+        );
+
+    }
+
+    if (
+        gameMode !== "ONLINE" &&
+        gameMode !== "OFFLINE"
+    ) {
+
+        gameMode = "OFFLINE";
+
+    }
+
+    if (!CARD_STYLES[cardStyle]) {
+
+        cardStyle = "NORMAL";
+
+    }
+
+    if (
+        difficulty !== "EASY" &&
+        difficulty !== "NORMAL" &&
+        difficulty !== "PRO" &&
+        difficulty !== "HARD"
+    ) {
+
+        difficulty = "PRO";
+
+    }
+
+    window.gameMode = gameMode;
+
+    window.cardStyle = cardStyle;
+
+    window.difficulty = difficulty;
+
+}
+
+/* =========================================================
+   UNIQUE CARD ID
+   ========================================================= */
+
+function createCardID() {
+
+    return (
+
+        "card_" +
+
+        Date.now() +
+
+        "_" +
+
+        Math.random()
+            .toString(36)
+            .substring(2, 10)
+
+    );
+
+}
+
+/* =========================================================
+   CREATE CARD
+   ========================================================= */
+
+function createCard(
+    color,
+    value,
+    type
+) {
+
+    return {
+
+        id: createCardID(),
+
+        color: color,
+
+        value: value,
+
+        type: type,
+
+        style: cardStyle
+
+    };
+
+}
+
+/* =========================================================
+   CREATE UNO DECK
+   ========================================================= */
+
+function createDeck() {
+
+    const newDeck = [];
+
+    /* -----------------------------------------------------
+       COLOURED CARDS
+       ----------------------------------------------------- */
+
+    COLOR_NAMES.forEach(color => {
+
+        /* ZERO */
+
+        newDeck.push(
+            createCard(
+                color,
+                CARD_VALUES.ZERO,
+                "number"
+            )
+        );
+
+        /* 1 - 9 */
+
+        for (
+            let number = 1;
+            number <= 9;
+            number++
+        ) {
+
+            newDeck.push(
+                createCard(
+                    color,
+                    String(number),
+                    "number"
+                )
+            );
+
+            newDeck.push(
+                createCard(
+                    color,
+                    String(number),
+                    "number"
+                )
+            );
+
+        }
+
+        /* ACTION CARDS */
+
+        for (let i = 0; i < 2; i++) {
+
+            newDeck.push(
+                createCard(
+                    color,
+                    CARD_VALUES.SKIP,
+                    "skip"
+                )
+            );
+
+            newDeck.push(
+                createCard(
+                    color,
+                    CARD_VALUES.REVERSE,
+                    "reverse"
+                )
+            );
+
+            newDeck.push(
+                createCard(
+                    color,
+                    CARD_VALUES.DRAW2,
+                    "draw2"
+                )
+            );
+
+        }
+
+    });
+
+    /* -----------------------------------------------------
+       WILD CARDS
+       ----------------------------------------------------- */
+
+    for (let i = 0; i < 4; i++) {
+
+        newDeck.push(
+            createCard(
+                null,
+                CARD_VALUES.WILD,
+                "wild"
+            )
+        );
+
+        newDeck.push(
+            createCard(
+                null,
+                CARD_VALUES.WILD4,
+                "wild4"
+            )
+        );
+
+    }
+
+    return newDeck;
+
+}
 
 /* =========================================================
    SHUFFLE
-========================================================= */
+   ========================================================= */
 
-function shuffleGameDeck(){
+function shuffleDeck(cards) {
 
-  for(let i = gameDeck.length - 1; i > 0; i--){
+    for (
+        let i = cards.length - 1;
+        i > 0;
+        i--
+    ) {
 
-    const j =
-      Math.floor(Math.random() * (i + 1));
+        const randomIndex =
+            Math.floor(
+                Math.random() *
+                (i + 1)
+            );
 
-    [
-      gameDeck[i],
-      gameDeck[j]
-    ] = [
-      gameDeck[j],
-      gameDeck[i]
+        [
+            cards[i],
+            cards[randomIndex]
+        ] = [
+            cards[randomIndex],
+            cards[i]
+        ];
+
+    }
+
+    return cards;
+
+}
+
+/* =========================================================
+   REFILL DECK
+   ========================================================= */
+
+function refillDeck() {
+
+    if (
+        discardPile.length <= 1
+    ) {
+
+        return;
+
+    }
+
+    const topCard =
+        discardPile[
+            discardPile.length - 1
+        ];
+
+    const oldDiscard =
+        discardPile.slice(
+            0,
+            discardPile.length - 1
+        );
+
+    deck =
+        oldDiscard.map(card => ({
+            ...card
+        }));
+
+    discardPile = [
+        topCard
     ];
 
-  }
+    shuffleDeck(deck);
 
 }
 
-
 /* =========================================================
-   DRAW CARD
-========================================================= */
+   DRAW ONE CARD
+   ========================================================= */
 
-function drawGameCard(){
+function drawFromDeck() {
 
-  if(gameDeck.length === 0){
+    if (deck.length === 0) {
 
-    createGameDeck();
+        refillDeck();
 
-  }
+    }
 
-  return gameDeck.pop();
+    if (deck.length === 0) {
+
+        return null;
+
+    }
+
+    return deck.pop();
 
 }
 
-
 /* =========================================================
-   DEAL CARDS
-========================================================= */
+   DRAW MULTIPLE CARDS
+   ========================================================= */
 
-function dealGameCards(){
+function drawCards(
+    hand,
+    amount
+) {
 
-  playerHand = [];
-  arshHand = [];
+    for (
+        let i = 0;
+        i < amount;
+        i++
+    ) {
 
-  for(let i = 0; i < 7; i++){
+        const card =
+            drawFromDeck();
 
-    playerHand.push(
-      drawGameCard()
-    );
+        if (!card) {
 
-    arshHand.push(
-      drawGameCard()
-    );
+            break;
 
-  }
-
-}
-
-
-/* =========================================================
-   START REAL GAME
-========================================================= */
-
-function startRealGame(){
-
-  gameBusy = false;
-  playerTurn = true;
-  gameScore = 0;
-
-  createGameDeck();
-
-  dealGameCards();
-
-  let firstCard =
-    drawGameCard();
-
-  /*
-    Don't start with +4.
-  */
-
-  while(
-    firstCard.color === "black"
-  ){
-
-    gameDeck.unshift(firstCard);
-
-    shuffleGameDeck();
-
-    firstCard =
-      drawGameCard();
-
-  }
-
-  currentCard = firstCard;
-
-  show3DGame();
-
-  renderPlayerHand();
-
-  renderCurrentCard();
-
-  updateGameCounters();
-
-  setGameTurn("YOUR TURN");
-
-  toastMessage(
-    "MATCH STARTED 🔥"
-  );
-
-}
-
-
-/* =========================================================
-   SHOW GAME
-========================================================= */
-
-function show3DGame(){
-
-  /*
-    Existing HTML may already have
-    a game screen. If it doesn't,
-    create one automatically.
-  */
-
-  let game =
-    document.getElementById("game");
-
-  if(!game){
-
-    game =
-      document.createElement("section");
-
-    game.id = "game";
-    game.className = "screen";
-
-    document.body.appendChild(game);
-
-    buildGameInterface(game);
-
-  }
-
-  document
-    .querySelectorAll(".screen")
-    .forEach(screen => {
-
-      screen.classList.add("hidden");
-
-    });
-
-  game.classList.remove("hidden");
-
-}
-
-
-/* =========================================================
-   BUILD GAME INTERFACE
-========================================================= */
-
-function buildGameInterface(game){
-
-  game.innerHTML = `
-
-    <div id="gameTop">
-
-      <button
-        id="gameBack"
-        onclick="show('menu')"
-      >
-        ←
-      </button>
-
-      <div id="gameTitle">
-        UNO ARENA
-      </div>
-
-      <div id="gameScore">
-        SCORE <b id="liveScore">0</b>
-      </div>
-
-    </div>
-
-
-    <div id="arshArea">
-
-      <div class="opponentAvatar">
-        AR
-      </div>
-
-      <div>
-        <b>ARSH</b>
-        <small id="arshCount">
-          7 CARDS
-        </small>
-      </div>
-
-    </div>
-
-
-    <div id="gameTable">
-
-      <div id="tableGlow"></div>
-
-      <div id="deckVisual">
-
-        <div class="deckCard back1"></div>
-        <div class="deckCard back2"></div>
-        <div class="deckCard back3"></div>
-
-        <div id="deckNumber">
-          0
-        </div>
-
-      </div>
-
-
-      <div id="currentVisual">
-      </div>
-
-
-      <div id="turnIndicator">
-        YOUR TURN
-      </div>
-
-    </div>
-
-
-    <div id="playerArea">
-
-      <div id="playerHand">
-      </div>
-
-      <div id="gameControls">
-
-        <button
-          id="drawButton"
-          onclick="drawPlayerCard()"
-        >
-          🎴 DRAW
-        </button>
-
-        <button
-          id="unoButton"
-          onclick="sayGameUno()"
-        >
-          UNO!
-        </button>
-
-      </div>
-
-    </div>
-
-
-    <div id="wildChooser">
-
-      <div>
-        CHOOSE COLOR
-      </div>
-
-      <button onclick="chooseGameColor('red')">
-        🔴
-      </button>
-
-      <button onclick="chooseGameColor('yellow')">
-        🟡
-      </button>
-
-      <button onclick="chooseGameColor('green')">
-        🟢
-      </button>
-
-      <button onclick="chooseGameColor('blue')">
-        🔵
-      </button>
-
-    </div>
-
-  `;
-
-
-  addGameStyles();
-
-}
-
-
-/* =========================================================
-   GAME CSS
-========================================================= */
-
-function addGameStyles(){
-
-  if(document.getElementById("gameDynamicCSS"))
-    return;
-
-  const style =
-    document.createElement("style");
-
-  style.id = "gameDynamicCSS";
-
-  style.textContent = `
-
-    #game{
-      background:
-        radial-gradient(
-          circle at 50% 45%,
-          #32101a 0%,
-          #10070a 40%,
-          #030303 100%
-        );
-      overflow:hidden;
-      z-index:100;
-    }
-
-    #gameTop{
-      position:absolute;
-      top:18px;
-      left:18px;
-      right:18px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      z-index:20;
-    }
-
-    #gameBack{
-      width:44px;
-      height:44px;
-      border-radius:50%;
-      background:#171717;
-      border:1px solid #444;
-      font-size:22px;
-    }
-
-    #gameTitle{
-      font-size:16px;
-      font-weight:1000;
-      letter-spacing:3px;
-    }
-
-    #gameScore{
-      padding:9px 13px;
-      border-radius:12px;
-      background:#111;
-      border:1px solid #333;
-      color:#888;
-      font-size:9px;
-      letter-spacing:1px;
-    }
-
-    #gameScore b{
-      color:#ffd54a;
-      font-size:15px;
-      margin-left:5px;
-    }
-
-    #arshArea{
-      position:absolute;
-      top:80px;
-      left:50%;
-      transform:translateX(-50%);
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:10px 16px;
-      border-radius:18px;
-      background:rgba(10,10,10,.8);
-      border:1px solid #333;
-      z-index:10;
-    }
-
-    .opponentAvatar{
-      width:42px;
-      height:42px;
-      border-radius:50%;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      background:linear-gradient(145deg,#ff3154,#710018);
-      font-size:11px;
-      font-weight:1000;
-      box-shadow:0 0 20px rgba(255,23,68,.4);
-    }
-
-    #arshArea small{
-      display:block;
-      color:#777;
-      margin-top:3px;
-      font-size:9px;
-    }
-
-    #gameTable{
-      position:absolute;
-      width:min(700px,120vw);
-      height:min(430px,75vw);
-      left:50%;
-      top:47%;
-      transform:
-        translate(-50%,-50%)
-        perspective(900px)
-        rotateX(55deg);
-      border-radius:50%;
-      background:
-        radial-gradient(
-          ellipse,
-          #24131a 0%,
-          #10090c 55%,
-          #050505 100%
-        );
-      border:2px solid #48202a;
-      box-shadow:
-        0 0 80px rgba(255,23,68,.18),
-        inset 0 0 80px #000;
-    }
-
-    #tableGlow{
-      position:absolute;
-      inset:10%;
-      border-radius:50%;
-      border:1px solid rgba(255,215,80,.15);
-      box-shadow:
-        0 0 50px rgba(255,193,7,.08);
-    }
-
-    #deckVisual{
-      position:absolute;
-      left:35%;
-      top:42%;
-      width:75px;
-      height:105px;
-      transform:
-        translate(-50%,-50%)
-        rotateZ(-8deg);
-    }
-
-    .deckCard{
-      position:absolute;
-      inset:0;
-      border-radius:12px;
-      border:3px solid white;
-      background:
-        linear-gradient(
-          135deg,
-          #ff3154,
-          #710018
-        );
-      box-shadow:
-        5px 8px 15px rgba(0,0,0,.6);
-    }
-
-    .back1{
-      transform:translate(-8px,-7px)
-        rotate(-7deg);
-    }
-
-    .back2{
-      transform:translate(-4px,-3px)
-        rotate(-3deg);
-    }
-
-    .back3{
-      z-index:3;
-    }
-
-    #deckNumber{
-      position:absolute;
-      z-index:5;
-      left:50%;
-      top:50%;
-      transform:translate(-50%,-50%);
-      font-size:14px;
-      font-weight:1000;
-    }
-
-    #currentVisual{
-      position:absolute;
-      left:65%;
-      top:42%;
-      width:82px;
-      height:116px;
-      transform:
-        translate(-50%,-50%)
-        rotate(4deg);
-      border-radius:14px;
-      border:4px solid white;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-size:42px;
-      font-weight:1000;
-      box-shadow:
-        8px 12px 25px rgba(0,0,0,.7),
-        0 0 30px rgba(255,255,255,.15);
-      transition:.35s;
-    }
-
-    #turnIndicator{
-      position:absolute;
-      left:50%;
-      bottom:18%;
-      transform:translateX(-50%);
-      padding:8px 15px;
-      border-radius:12px;
-      background:#111;
-      border:1px solid #333;
-      font-size:9px;
-      font-weight:900;
-      letter-spacing:2px;
-      white-space:nowrap;
-    }
-
-    #      color:white;
-      background:#111;
-    }
-
-    .gameCard:first-child{
-      margin-left:0;
-    }
-
-    .gameCard:active{
-      transform:translateY(-20px) scale(1.05)!important;
-    }
-
-    .gameCard.red{
-      background:linear-gradient(145deg,#ff4965,#a90028);
-    }
-
-    .gameCard.yellow{
-      background:linear-gradient(145deg,#ffe66d,#c28b00);
-      color:#241900;
-    }
-
-    .gameCard.green{
-      background:linear-gradient(145deg,#35efaa,#08784c);
-    }
-
-    .gameCard.blue{
-      background:linear-gradient(145deg,#55b2ff,#0752a6);
-    }
-
-    .gameCard.black{
-      background:
-        linear-gradient(
-          135deg,
-          #ff1744,
-          #151515 42%,
-          #2196ff
-        );
-    }
-
-    .gameCard.playable{
-      box-shadow:
-        0 0 12px rgba(255,255,255,.35),
-        4px 8px 15px rgba(0,0,0,.7);
-    }
-
-    .gameCard.notPlayable{
-      filter:brightness(.45);
-      opacity:.65;
-    }
-
-    #gameControls{
-      display:flex;
-      justify-content:center;
-      gap:10px;
-      margin-top:4px;
-    }
-
-    #gameControls button{
-      padding:12px 20px;
-      border-radius:13px;
-      font-weight:1000;
-      font-size:11px;
-      letter-spacing:1px;
-    }
-
-    #drawButton{
-      background:#202020;
-      border:1px solid #444;
-    }
-
-    #unoButton{
-      background:linear-gradient(100deg,#e80032,#ff3154);
-      box-shadow:0 8px 20px rgba(255,23,68,.25);
-    }
-
-    #wildChooser{
-      position:absolute;
-      left:50%;
-      bottom:145px;
-      transform:translateX(-50%) scale(.8);
-      display:none;
-      align-items:center;
-      gap:8px;
-      padding:14px;
-      border-radius:18px;
-      background:rgba(10,10,10,.97);
-      border:1px solid #444;
-      box-shadow:0 20px 60px rgba(0,0,0,.8);
-      z-index:100;
-    }
-
-    #wildChooser.show{
-      display:flex;
-      animation:wildIn .25s ease forwards;
-    }
-
-    @keyframes wildIn{
-      to{
-        transform:translateX(-50%) scale(1);
-      }
-    }
-
-    #wildChooser div{
-      position:absolute;
-      left:50%;
-      top:-25px;
-      transform:translateX(-50%);
-      font-size:8px;
-      letter-spacing:2px;
-      color:#aaa;
-      white-space:nowrap;
-    }
-
-    #wildChooser button{
-      width:42px;
-      height:42px;
-      border-radius:50%;
-      background:#181818;
-      border:1px solid #444;
-      font-size:20px;
-    }
-
-    @media(max-width:500px){
-
-      #gameTable{
-        width:125vw;
-        height:70vw;
-      }
-
-      #deckVisual{
-        left:32%;
-        transform:
-          translate(-50%,-50%)
-          scale(.8)
-          rotateZ(-8deg);
-      }
-
-      #currentVisual{
-        left:68%;
-        transform:
-          translate(-50%,-50%)
-          scale(.8)
-          rotateZ(4deg);
-      }
-
-      .gameCard{
-        width:45px;
-        height:67px;
-        margin-left:-10px;
-        font-size:20px;
-      }
-
-      #playerHand{
-        min-height:95px;
-      }
-
-      #gameControls button{
-        padding:10px 15px;
-      }
-
-    }
-
-  `;
-
-  document.head.appendChild(style);
-
-}
-
-
-/* =========================================================
-   RENDER PLAYER HAND
-========================================================= */
-
-function renderPlayerHand(){
-
-  const handBox =
-    document.getElementById("playerHand");
-
-  if(!handBox) return;
-
-  handBox.innerHTML = "";
-
-  playerHand.forEach((card,index) => {
-
-    const el =
-      document.createElement("button");
-
-    el.className =
-      "gameCard " + card.color;
-
-    el.textContent =
-      card.value === "Wild"
-        ? "★"
-        : card.value;
-
-    if(
-      playerTurn &&
-      canPlayGameCard(card)
-    ){
-
-      el.classList.add("playable");
-
-    }
-    else{
-
-      el.classList.add("notPlayable");
-
-    }
-
-    el.onclick =
-      () => playGameCard(index);
-
-    handBox.appendChild(el);
-
-  });
-
-}
-
-
-/* =========================================================
-   CHECK PLAYABLE
-========================================================= */
-
-function canPlayGameCard(card){
-
-  if(!card) return false;
-
-  return (
-    card.color === "black" ||
-    card.color === currentCard.color ||
-    card.value === currentCard.value
-  );
-
-}
-
-
-/* =========================================================
-   CURRENT CARD
-========================================================= */
-
-function renderCurrentCard(){
-
-  const el =
-    document.getElementById("currentVisual");
-
-  if(!el) return;
-
-  el.className =
-    "";
-
-  el.id =
-    "currentVisual";
-
-  el.classList.add(
-    currentCard.color
-  );
-
-  el.textContent =
-    currentCard.value === "Wild"
-      ? "★"
-      : currentCard.value;
-
-}
-
-
-/* =========================================================
-   COUNTERS
-========================================================= */
-
-function updateGameCounters(){
-
-  const score =
-    document.getElementById("liveScore");
-
-  if(score){
-
-    score.textContent =
-      gameScore;
-
-  }
-
-
-  const arsh =
-    document.getElementById("arshCount");
-
-  if(arsh){
-
-    arsh.textContent =
-      arshHand.length + " CARDS";
-
-  }
-
-
-  const deck =
-    document.getElementById("deckNumber");
-
-  if(deck){
-
-    deck.textContent =
-      gameDeck.length;
-
-  }
-
-}
-
-
-/* =========================================================
-   TURN TEXT
-========================================================= */
-
-function setGameTurn(textValue){
-
-  const el =
-    document.getElementById(
-      "turnIndicator"
-    );
-
-  if(el){
-
-    el.textContent =
-      textValue;
-
-  }
-
-}
-
-
-/* =========================================================
-   END OF PART 2
-========================================================= */
-
-/* =========================================================
-   CARD ARENA — PART 3
-   PLAYER CARD ACTIONS + WILD + SCORING
-========================================================= */
-
-
-/* =========================================================
-   PLAY PLAYER CARD
-========================================================= */
-
-function playGameCard(index){
-
-  if(gameBusy) return;
-
-  if(!playerTurn) return;
-
-  const card =
-    playerHand[index];
-
-  if(!card) return;
-
-  if(!canPlayGameCard(card)){
-
-    toastMessage(
-      "❌ CARD CANNOT BE PLAYED"
-    );
-
-    shakeGameTable();
-
-    return;
-
-  }
-
-  gameBusy = true;
-
-  animatePlayedCard(card);
-
-  setTimeout(() => {
-
-    playerHand.splice(index,1);
-
-    currentCard = {
-      color: card.color,
-      value: card.value
-    };
-
-    addGameScore(card);
-
-    renderPlayerHand();
-
-    renderCurrentCard();
-
-    updateGameCounters();
-
-    specialGameEffect(card);
-
-
-    /* PLAYER WINS */
-
-    if(playerHand.length === 0){
-
-      setTimeout(() => {
-
-        finishGame(true);
-
-      },600);
-
-      return;
-
-    }
-
-
-    /*
-      Wild card needs a color.
-    */
-
-    if(card.color === "black"){
-
-      openGameWild();
-
-      return;
-
-    }
-
-
-    playerTurn = false;
-
-    renderPlayerHand();
-
-    setGameTurn(
-      "ARSH PRO THINKING..."
-    );
-
-    setTimeout(() => {
-
-      arshGameTurn();
-
-    },900);
-
-  },450);
-
-}
-
-
-/* =========================================================
-   DRAW
-========================================================= */
-
-function drawPlayerCard(){
-
-  if(gameBusy) return;
-
-  if(!playerTurn) return;
-
-  gameBusy = true;
-
-  const card =
-    drawGameCard();
-
-  playerHand.push(card);
-
-  renderPlayerHand();
-
-  updateGameCounters();
-
-  toastMessage(
-    "🎴 CARD DRAWN"
-  );
-
-  /*
-    Automatically play if
-    the drawn card is playable.
-  */
-
-  if(canPlayGameCard(card)){
-
-    setTimeout(() => {
-
-      gameBusy = false;
-
-      toastMessage(
-        "✨ YOU CAN PLAY THAT CARD"
-      );
-
-    },450);
-
-  }
-  else{
-
-    setTimeout(() => {
-
-      gameBusy = false;
-
-      playerTurn = false;
-
-      renderPlayerHand();
-
-      setGameTurn(
-        "ARSH PRO THINKING..."
-      );
-
-      setTimeout(() => {
-
-        arshGameTurn();
-
-      },700);
-
-    },450);
-
-  }
-
-}
-
-
-/* =========================================================
-   WILD PICKER
-========================================================= */
-
-function openGameWild(){
-
-  const chooser =
-    document.getElementById(
-      "wildChooser"
-    );
-
-  if(!chooser){
-
-    chooseGameColor("red");
-
-    return;
-
-  }
-
-  chooser.classList.add("show");
-
-}
-
-
-/* =========================================================
-   CHOOSE WILD COLOR
-========================================================= */
-
-function chooseGameColor(color){
-
-  if(
-    !["red","yellow","green","blue"]
-      .includes(color)
-  ){
-
-    return;
-
-  }
-
-  currentCard.color = color;
-
-  const chooser =
-    document.getElementById(
-      "wildChooser"
-    );
-
-  if(chooser){
-
-    chooser.classList.remove("show");
-
-  }
-
-  renderCurrentCard();
-
-  toastMessage(
-    "🌈 COLOR → " +
-    color.toUpperCase()
-  );
-
-  playerTurn = false;
-
-  renderPlayerHand();
-
-  setGameTurn(
-    "ARSH PRO THINKING..."
-  );
-
-  setTimeout(() => {
-
-    arshGameTurn();
-
-  },850);
-
-}
-
-
-/* =========================================================
-   SCORE
-========================================================= */
-
-function addGameScore(card){
-
-  if(!card) return;
-
-  if(card.value === "+4"){
-
-    gameScore += 50;
-
-  }
-  else if(card.value === "+2"){
-
-    gameScore += 25;
-
-  }
-  else if(card.color === "black"){
-
-    gameScore += 40;
-
-  }
-  else if(
-    card.value === "Skip" ||
-    card.value === "Reverse"
-  ){
-
-    gameScore += 20;
-
-  }
-  else{
-
-    gameScore += 10;
-
-  }
-
-  const score =
-    document.getElementById(
-      "liveScore"
-    );
-
-  if(score){
-
-    score.textContent =
-      gameScore;
-
-  }
-
-}
-
-
-/* =========================================================
-   SPECIAL CARD EFFECTS
-========================================================= */
-
-function specialGameEffect(card){
-
-  if(!card) return;
-
-
-  if(card.value === "+2"){
-
-    toastMessage(
-      "💥 +2 ATTACK!"
-    );
-
-    shakeGameTable();
-
-    flashGame();
-
-  }
-
-
-  else if(card.value === "+4"){
-
-    toastMessage(
-      "💣 WILD +4!"
-    );
-
-    shakeGameTable();
-
-    flashGame();
-
-    createGameParticles();
-
-  }
-
-
-  else if(card.value === "Skip"){
-
-    toastMessage(
-      "⛔ SKIP!"
-    );
-
-    flashGame();
-
-  }
-
-
-  else if(card.value === "Reverse"){
-
-    toastMessage(
-      "🔄 REVERSE!"
-    );
-
-    shakeGameTable();
-
-  }
-
-}
-
-
-/* =========================================================
-   PLAYED CARD ANIMATION
-========================================================= */
-
-function animatePlayedCard(card){
-
-  const el =
-    document.createElement("div");
-
-  el.className =
-    "gameCard " + card.color;
-
-  el.textContent =
-    card.value === "Wild"
-      ? "★"
-      : card.value;
-
-  el.style.position =
-    "fixed";
-
-  el.style.left =
-    "50%";
-
-  el.style.bottom =
-    "80px";
-
-  el.style.zIndex =
-    "9999";
-
-  el.style.margin =
-    "0";
-
-  el.style.transition =
-    ".55s cubic-bezier(.2,.8,.2,1)";
-
-  document.body.appendChild(el);
-
-  requestAnimationFrame(() => {
-
-    el.style.left =
-      "50%";
-
-    el.style.bottom =
-      "48%";
-
-    el.style.transform =
-      "translate(-50%,-50%) rotate(720deg) scale(.7)";
-
-    el.style.opacity =
-      "0";
-
-  });
-
-  setTimeout(() => {
-
-    el.remove();
-
-  },650);
-
-}
-
-
-/* =========================================================
-   TABLE SHAKE
-========================================================= */
-
-function shakeGameTable(){
-
-  const table =
-    document.getElementById(
-      "gameTable"
-    );
-
-  if(!table) return;
-
-  table.animate(
-
-    [
-      {
-        transform:
-          "translate(-50%,-50%) perspective(900px) rotateX(55deg)"
-      },
-
-      {
-        transform:
-          "translate(calc(-50% - 8px),-50%) perspective(900px) rotateX(55deg)"
-      },
-
-      {
-        transform:
-          "translate(calc(-50% + 8px),-50%) perspective(900px) rotateX(55deg)"
-      },
-
-      {
-        transform:
-          "translate(-50%,-50%) perspective(900px) rotateX(55deg)"
-      }
-    ],
-
-    {
-      duration:360,
-      easing:"ease-out"
-    }
-
-  );
-
-}
-
-
-/* =========================================================
-   FLASH
-========================================================= */
-
-function flashGame(){
-
-  const el =
-    document.createElement("div");
-
-  el.style.position =
-    "fixed";
-
-  el.style.inset =
-    "0";
-
-  el.style.background =
-    "white";
-
-  el.style.opacity =
-    "0";
-
-  el.style.zIndex =
-    "9998";
-
-  document.body.appendChild(el);
-
-  el.animate(
-
-    [
-      {opacity:0},
-      {opacity:.25},
-      {opacity:0}
-    ],
-
-    {
-      duration:400
-    }
-
-  );
-
-  setTimeout(() => {
-
-    el.remove();
-
-  },450);
-
-}
-
-
-/* =========================================================
-   PARTICLES
-========================================================= */
-
-function createGameParticles(){
-
-  for(let i=0;i<30;i++){
-
-    const p =
-      document.createElement("div");
-
-    p.style.position =
-      "fixed";
-
-    p.style.left =
-      "50%";
-
-    p.style.top =
-      "50%";
-
-    p.style.width =
-      "6px";
-
-    p.style.height =
-      "6px";
-
-    p.style.borderRadius =
-      "50%";
-
-    p.style.background =
-      COLORS[
-        Math.floor(
-          Math.random() * COLORS.length
-        )
-      ];
-
-    p.style.zIndex =
-      "9999";
-
-    document.body.appendChild(p);
-
-    const angle =
-      Math.random() *
-      Math.PI * 2;
-
-    const distance =
-      100 +
-      Math.random() * 250;
-
-    p.animate(
-
-      [
-        {
-          transform:
-            "translate(-50%,-50%) scale(1)",
-          opacity:1
-        },
-
-        {
-          transform:
-            `translate(
-              calc(-50% + ${Math.cos(angle)*distance}px),
-              calc(-50% + ${Math.sin(angle)*distance}px)
-            ) scale(0)`,
-          opacity:0
         }
-      ],
 
-      {
-        duration:
-          600 +
-          Math.random() * 500
-      }
+        hand.push(card);
 
+    }
+
+}
+
+/* =========================================================
+   RESET GAME STATE
+   ========================================================= */
+
+function resetGameState() {
+
+    clearTimeout(aiTimer);
+
+    gameOver = false;
+
+    currentTurn = "PLAYER";
+
+    currentColor = null;
+
+    selectedCardIndex = -1;
+
+    hoveredCardIndex = -1;
+
+    playerCalledUNO = false;
+
+    playerNeedsUNO = false;
+
+    aiCalledUNO = false;
+
+    aiNeedsUNO = false;
+
+    pendingWildCard = null;
+
+    playerHand = [];
+
+    aiHand = [];
+
+    deck = [];
+
+    discardPile = [];
+
+}
+
+/* =========================================================
+   DEAL STARTING CARDS
+   ========================================================= */
+
+function dealStartingCards() {
+
+    for (
+        let i = 0;
+        i < 7;
+        i++
+    ) {
+
+        const playerCard =
+            drawFromDeck();
+
+        const aiCard =
+            drawFromDeck();
+
+        if (playerCard) {
+
+            playerHand.push(
+                playerCard
+            );
+
+        }
+
+        if (aiCard) {
+
+            aiHand.push(
+                aiCard
+            );
+
+        }
+
+    }
+
+}
+
+/* =========================================================
+   FIRST DISCARD CARD
+   ========================================================= */
+
+function createFirstDiscard() {
+
+    let card =
+        drawFromDeck();
+
+    let safety = 0;
+
+    /*
+       Do not begin the game
+       with a WILD or +4.
+    */
+
+    while (
+        card &&
+        (
+            card.type === "wild" ||
+            card.type === "wild4"
+        ) &&
+        safety < 20
+    ) {
+
+        deck.unshift(card);
+
+        shuffleDeck(deck);
+
+        card =
+            drawFromDeck();
+
+        safety++;
+
+    }
+
+    if (!card) {
+
+        return;
+
+    }
+
+    discardPile.push(card);
+
+    currentColor =
+        card.color ||
+        COLOR_NAMES[
+            Math.floor(
+                Math.random() *
+                COLOR_NAMES.length
+            )
+        ];
+
+}
+
+/* =========================================================
+   CHECK IF CARD IS PLAYABLE
+   ========================================================= */
+
+function canPlayCard(
+    card,
+    hand = playerHand
+) {
+
+    if (!card) {
+
+        return false;
+
+    }
+
+    const topCard =
+        discardPile[
+            discardPile.length - 1
+        ];
+
+    if (!topCard) {
+
+        return true;
+
+    }
+
+    /* WILD */
+
+    if (
+        card.type === "wild"
+    ) {
+
+        return true;
+
+    }
+
+    /* WILD +4 */
+
+    if (
+        card.type === "wild4"
+    ) {
+
+        /*
+           +4 is allowed only when
+           player has no current colour.
+        */
+
+        const hasCurrentColour =
+            hand.some(
+                currentCard =>
+                    currentCard.color ===
+                    currentColor
+            );
+
+        if (hasCurrentColour) {
+
+            return false;
+
+        }
+
+        return true;
+
+    }
+
+    /* SAME COLOUR */
+
+    if (
+        card.color === currentColor
+    ) {
+
+        return true;
+
+    }
+
+    /* SAME VALUE */
+
+    if (
+        card.value === topCard.value
+    ) {
+
+        return true;
+
+    }
+
+    return false;
+
+}
+
+/* =========================================================
+   GET PLAYABLE CARDS
+   ========================================================= */
+
+function getPlayableCards(
+    hand
+) {
+
+    const playable = [];
+
+    hand.forEach(
+        (card, index) => {
+
+            if (
+                canPlayCard(
+                    card,
+                    hand
+                )
+            ) {
+
+                playable.push(
+                    index
+                );
+
+            }
+
+        }
     );
 
-    setTimeout(() => {
-
-      p.remove();
-
-    },1200);
-
-  }
+    return playable;
 
 }
 
-
 /* =========================================================
-   UNO BUTTON
-========================================================= */
+   NEXT TURN
+   ========================================================= */
 
-function sayGameUno(){
+function changeTurn() {
 
-  if(playerHand.length === 1){
+    if (
+        currentTurn === "PLAYER"
+    ) {
 
-    toastMessage(
-      "🔥 UNO!"
-    );
+        currentTurn = "AI";
 
-    gameScore += 25;
+    } else {
 
-    updateGameCounters();
+        currentTurn = "PLAYER";
 
-    createGameParticles();
-
-  }
-  else{
-
-    toastMessage(
-      "YOU NEED 1 CARD!"
-    );
-
-  }
+    }
 
 }
 
-
 /* =========================================================
-   START GAME BUTTON SUPPORT
-========================================================= */
+   CARD PRIORITY
+   ========================================================= */
 
-function launchCardArena(){
+function getCardPriority(card) {
 
-  startRealGame();
+    if (!card) {
 
-}
-
-
-/* =========================================================
-   GLOBAL FUNCTIONS
-========================================================= */
-
-window.startRealGame =
-  startRealGame;
-
-window.launchCardArena =
-  launchCardArena;
-
-window.playGameCard =
-  playGameCard;
-
-window.drawPlayerCard =
-  drawPlayerCard;
-
-window.chooseGameColor =
-  chooseGameColor;
-
-window.sayGameUno =
-  sayGameUno;
-
-
-/* =========================================================
-   PART 3 END
-========================================================= */
-/* =========================================================
-   CARD ARENA — PART 4
-   ARSH PRO AI + GAME END
-========================================================= */
-
-
-/* =========================================================
-   ARSH PRO TURN
-========================================================= */
-
-function arshGameTurn(){
-
-  if(gameBusy) return;
-
-  gameBusy = true;
-
-  setGameTurn(
-    "ARSH PRO IS PLAYING..."
-  );
-
-
-  setTimeout(() => {
-
-    /*
-      Find playable cards from
-      ARSH'S ACTUAL HAND.
-    */
-
-    let possible =
-      arshHand.filter(card =>
-        canPlayGameCard(card)
-      );
-
-
-    /*
-      If Arsh has no playable card,
-      draw one.
-    */
-
-    if(possible.length === 0){
-
-      const drawn =
-        drawGameCard();
-
-      arshHand.push(drawn);
-
-      updateGameCounters();
-
-      toastMessage(
-        "ARSH DREW A CARD"
-      );
-
-
-      /*
-        Check whether the drawn
-        card can immediately be played.
-      */
-
-      if(canPlayGameCard(drawn)){
-
-        possible = [drawn];
-
-      }
+        return 0;
 
     }
 
+    if (
+        card.type === "wild4"
+    ) {
 
-    /*
-      Still nothing playable.
-    */
-
-    if(possible.length === 0){
-
-      finishArshTurn();
-
-      return;
+        return 100;
 
     }
 
+    if (
+        card.type === "draw2"
+    ) {
 
-    /*
-      Choose the smartest card.
-    */
-
-    const chosen =
-      chooseArshCard(possible);
-
-    playArshCard(chosen);
-
-  },900);
-
-}
-
-
-/* =========================================================
-   SMART ARSH CARD CHOICE
-========================================================= */
-
-function chooseArshCard(possible){
-
-  let best =
-    possible[0];
-
-  let bestScore =
-    -Infinity;
-
-
-  possible.forEach(card => {
-
-    let value = 0;
-
-
-    /*
-      Prefer attack cards.
-    */
-
-    if(card.value === "+4")
-      value += 80;
-
-    if(card.value === "+2")
-      value += 55;
-
-    if(card.value === "Skip")
-      value += 35;
-
-
-    /*
-      Prefer cards matching
-      the current color.
-    */
-
-    if(
-      card.color === currentCard.color
-    ){
-
-      value += 20;
+        return 80;
 
     }
 
+    if (
+        card.type === "skip"
+    ) {
 
-    /*
-      Matching value is useful.
-    */
-
-    if(
-      card.value === currentCard.value
-    ){
-
-      value += 25;
+        return 70;
 
     }
 
+    if (
+        card.type === "reverse"
+    ) {
 
-    /*
-      If Arsh has few cards,
-      prioritize powerful cards.
-    */
-
-    if(arshHand.length <= 3){
-
-      if(card.value === "+4")
-        value += 50;
-
-      if(card.value === "+2")
-        value += 35;
+        return 65;
 
     }
 
+    if (
+        card.type === "wild"
+    ) {
 
-    /*
-      Avoid wasting Wild when
-      a normal card is available.
-    */
-
-    if(card.color === "black"){
-
-      value -= 12;
+        return 60;
 
     }
 
-
-    /*
-      Small randomness makes
-      the AI less predictable.
-    */
-
-    value +=
-      Math.random() * 10;
-
-
-    if(value > bestScore){
-
-      bestScore = value;
-      best = card;
-
-    }
-
-  });
-
-
-  return best;
-
-}
-
-
-/* =========================================================
-   ARSH PLAY CARD
-========================================================= */
-
-function playArshCard(card){
-
-  const index =
-    arshHand.indexOf(card);
-
-  if(index === -1){
-
-    finishArshTurn();
-
-    return;
-
-  }
-
-
-  animateArshCard(card);
-
-
-  setTimeout(() => {
-
-    arshHand.splice(
-      index,
-      1
-    );
-
-
-    currentCard = {
-      color: card.color,
-      value: card.value
-    };
-
-
-    renderCurrentCard();
-
-    updateGameCounters();
-
-    specialGameEffect(card);
-
-
-    toastMessage(
-      card.value === "+4"
-        ? "💣 ARSH PLAYED +4!"
-        : "🔥 ARSH PLAYED " +
-          card.value
-    );
-
-
-    /*
-      ARSH WINS
-    */
-
-    if(arshHand.length === 0){
-
-      setTimeout(() => {
-
-        finishGame(false);
-
-      },700);
-
-      return;
-
-    }
-
-
-    /*
-      Wild card.
-    */
-
-    if(card.color === "black"){
-
-      setTimeout(() => {
-
-        arshChooseGameColor();
-
-      },500);
-
-      return;
-
-    }
-
-
-    finishArshTurn();
-
-  },500);
-
-}
-
-
-/* =========================================================
-   ARSH WILD COLOR
-========================================================= */
-
-function arshChooseGameColor(){
-
-  const counts = {
-    red:0,
-    yellow:0,
-    green:0,
-    blue:0
-  };
-
-
-  /*
-    Count colors in Arsh's
-    remaining hand.
-  */
-
-  arshHand.forEach(card => {
-
-    if(
-      counts[card.color] !== undefined
-    ){
-
-      counts[card.color]++;
-
-    }
-
-  });
-
-
-  let bestColor =
-    "red";
-
-  let highest =
-    -1;
-
-
-  COLORS.forEach(color => {
-
-    if(
-      counts[color] > highest
-    ){
-
-      highest =
-        counts[color];
-
-      bestColor =
-        color;
-
-    }
-
-  });
-
-
-  currentCard.color =
-    bestColor;
-
-
-  renderCurrentCard();
-
-
-  toastMessage(
-    "🌈 ARSH CHOSE " +
-    bestColor.toUpperCase()
-  );
-
-
-  finishArshTurn();
-
-}
-
-
-/* =========================================================
-   ARSH CARD ANIMATION
-========================================================= */
-
-function animateArshCard(card){
-
-  const el =
-    document.createElement("div");
-
-  el.className =
-    "gameCard " +
-    card.color;
-
-  el.textContent =
-    card.value === "Wild"
-      ? "★"
-      : card.value;
-
-
-  el.style.position =
-    "fixed";
-
-  el.style.left =
-    "50%";
-
-  el.style.top =
-    "95px";
-
-  el.style.zIndex =
-    "9999";
-
-  el.style.margin =
-    "0";
-
-  el.style.transition =
-    ".6s cubic-bezier(.2,.8,.2,1)";
-
-
-  document.body.appendChild(el);
-
-
-  requestAnimationFrame(() => {
-
-    el.style.left =
-      "50%";
-
-    el.style.top =
-      "48%";
-
-    el.style.transform =
-      "translate(-50%,-50%) rotate(-720deg) scale(.7)";
-
-    el.style.opacity =
-      "0";
-
-  });
-
-
-  setTimeout(() => {
-
-    el.remove();
-
-  },700);
-
-}
-
-
-/* =========================================================
-   FINISH ARSH TURN
-========================================================= */
-
-function finishArshTurn(){
-
-  setTimeout(() => {
-
-    playerTurn = true;
-
-    gameBusy = false;
-
-    renderPlayerHand();
-
-    setGameTurn(
-      "YOUR TURN"
-    );
-
-    updateGameCounters();
-
-  },850);
-
-}
-
-
-/* =========================================================
-   GAME OVER
-========================================================= */
-
-function finishGame(playerWon){
-
-  gameBusy = true;
-
-  const overlay =
-    document.createElement("div");
-
-  overlay.id =
-    "gameOverOverlay";
-
-
-  overlay.innerHTML = `
-
-    <div class="gameOverBox">
-
-      <div class="gameOverIcon">
-        ${playerWon ? "🏆" : "😈"}
-      </div>
-
-      <div class="gameOverTitle">
-        ${playerWon
-          ? "YOU WIN!"
-          : "ARSH WINS!"}
-      </div>
-
-      <div class="gameOverScore">
-        SCORE
-        <b>${gameScore}</b>
-      </div>
-
-      <button
-        onclick="restartCardArena()"
-      >
-        PLAY AGAIN
-      </button>
-
-      <button
-        onclick="location.reload()"
-        class="secondaryGameButton"
-      >
-        MAIN MENU
-      </button>
-
-    </div>
-
-  `;
-
-
-  document.body.appendChild(
-    overlay
-  );
-
-
-  addGameOverStyles();
-
-
-  if(playerWon){
-
-    createGameParticles();
-
-    flashGame();
-
-  }
-  else{
-
-    shakeGameTable();
-
-  }
-
-}
-
-
-/* =========================================================
-   GAME OVER CSS
-========================================================= */
-
-function addGameOverStyles(){
-
-  if(
-    document.getElementById(
-      "gameOverCSS"
-    )
-  ){
-
-    return;
-
-  }
-
-
-  const style =
-    document.createElement("style");
-
-  style.id =
-    "gameOverCSS";
-
-
-  style.textContent = `
-
-    #gameOverOverlay{
-
-      position:fixed;
-
-      inset:0;
-
-      display:flex;
-
-      align-items:center;
-
-      justify-content:center;
-
-      background:
-        rgba(0,0,0,.78);
-
-      backdrop-filter:
-        blur(10px);
-
-      z-index:20000;
-
-    }
-
-
-    .gameOverBox{
-
-      width:min(360px,88vw);
-
-      padding:35px 25px;
-
-      text-align:center;
-
-      border-radius:28px;
-
-      background:
-        linear-gradient(
-          145deg,
-          #1c1c1c,
-          #080808
+    if (
+        card.type === "number"
+    ) {
+
+        return (
+            Number(card.value) ||
+            0
         );
 
-      border:
-        1px solid #444;
-
-      box-shadow:
-        0 30px 100px
-        rgba(0,0,0,.9);
-
-      animation:
-        gameOverIn .45s
-        cubic-bezier(.2,.8,.2,1);
-
     }
 
+    return 10;
 
-    @keyframes gameOverIn{
+}
 
-      from{
-        opacity:0;
-        transform:
-          scale(.7)
-          translateY(30px);
-      }
+/* =========================================================
+   RESET ROUND
+   ========================================================= */
 
-      to{
-        opacity:1;
-        transform:
-          scale(1)
-          translateY(0);
-      }
+function resetRound() {
 
-    }
+    resetGameState();
 
-
-    .gameOverIcon{
-
-      font-size:65px;
-
-    }
-
-
-    .gameOverTitle{
-
-      margin-top:12px;
-
-      font-size:36px;
-
-      font-weight:1000;
-
-      letter-spacing:2px;
-
-    }
-
-
-    .gameOverScore{
-
-      margin-top:18px;
-
-      color:#888;
-
-      font-size:10px;
-
-      letter-spacing:3px;
-
-    }
-
-
-    .gameOverScore b{
-
-      display:block;
-
-      margin-top:5px;
-
-      color:#ffd54a;
-
-      font-size:30px;
-
-      letter-spacing:0;
-
-    }
-
-
-    .gameOverBox button{
-
-      width:100%;
-
-      margin-top:22px;
-
-      padding:15px;
-
-      border-radius:14px;
-
-      background:
-        linear-gradient(
-          100deg,
-          #e80032,
-          #ff3154
+    deck =
+        shuffleDeck(
+            createDeck()
         );
 
-      color:white;
+    dealStartingCards();
 
-      font-weight:1000;
+    createFirstDiscard();
 
-      letter-spacing:1px;
+    currentTurn = "PLAYER";
 
-    }
-
-
-    .gameOverBox
-    .secondaryGameButton{
-
-      margin-top:10px;
-
-      background:#202020;
-
-      border:1px solid #333;
-
-    }
-
-  `;
-
-
-  document.head.appendChild(
-    style
-  );
+    gameOver = false;
 
 }
 
-
 /* =========================================================
-   RESTART
-========================================================= */
+   GAME START DATA
+   ========================================================= */
 
-function restartCardArena(){
+function prepareGame() {
 
-  const overlay =
-    document.getElementById(
-      "gameOverOverlay"
+    getSelectedGameSettings();
+
+    resetRound();
+
+    console.log(
+        "CARD ARENA SETTINGS:",
+        {
+            mode: gameMode,
+            style: cardStyle,
+            difficulty: difficulty
+        }
     );
 
-  if(overlay){
-
-    overlay.remove();
-
-  }
-
-  startRealGame();
-
 }
 
+/* =========================================================
+   PUBLIC CARD HELPERS
+   ========================================================= */
+
+window.ArenaCards = {
+
+    createDeck,
+
+    shuffleDeck,
+
+    drawFromDeck,
+
+    canPlayCard,
+
+    getPlayableCards,
+
+    drawCards,
+
+    getCardPriority
+
+};
 
 /* =========================================================
-   GLOBAL
-========================================================= */
+   INITIAL SETTINGS
+   ========================================================= */
 
-window.restartCardArena =
-  restartCardArena;
-
-
-/* =========================================================
-   CARD ARENA ENGINE COMPLETE
-========================================================= */
+getSelectedGameSettings();
 
 console.log(
-  "🔥 CARD ARENA GAME ENGINE LOADED"
+    "%cARSH CARD ARENA CORE READY",
+    "color:#ffd54a;font-size:16px;font-weight:bold"
 );
-console.log("GAME.JS FINAL TEST");
-console.log("Three:", typeof THREE);
-console.log("startRealGame:", typeof startRealGame);
-console.log("arshHand:", typeof arshHand);
