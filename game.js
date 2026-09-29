@@ -989,3 +989,1369 @@ console.log(
     "%cARSH CARD ARENA CORE READY",
     "color:#ffd54a;font-size:16px;font-weight:bold"
 );
+/* =========================================================
+   ARSH CARD ARENA — GAME.JS
+   PART 2/3 — GAME LOGIC + ARSH PRO AI
+   ========================================================= */
+
+/* =========================================================
+   TURN / GAME STATUS HELPERS
+   ========================================================= */
+
+function isPlayerTurn() {
+
+    return (
+        gameRunning &&
+        !gameOver &&
+        currentTurn === "PLAYER"
+    );
+
+}
+
+function isAITurn() {
+
+    return (
+        gameRunning &&
+        !gameOver &&
+        currentTurn === "AI"
+    );
+
+}
+
+function getTopCard() {
+
+    return (
+        discardPile[
+            discardPile.length - 1
+        ] || null
+    );
+
+}
+
+/* =========================================================
+   START GAME
+   ========================================================= */
+
+function startGame() {
+
+    clearTimeout(aiTimer);
+
+    gameRunning = false;
+
+    gameOver = false;
+
+    prepareGame();
+
+    gameRunning = true;
+
+    updateGameStatus();
+
+    console.log(
+        "%cGAME STARTED",
+        "color:#16d98a;font-weight:bold"
+    );
+
+    emitGameEvent(
+        "gameStarted",
+        {
+            mode: gameMode,
+            style: cardStyle,
+            difficulty: difficulty
+        }
+    );
+
+    renderGame();
+
+    /*
+       If the first player is AI,
+       start AI automatically.
+    */
+
+    if (
+        currentTurn === "AI"
+    ) {
+
+        scheduleAITurn();
+
+    }
+
+}
+
+/* =========================================================
+   STOP GAME
+   ========================================================= */
+
+function stopGame() {
+
+    clearTimeout(aiTimer);
+
+    gameRunning = false;
+
+    gameOver = false;
+
+    selectedCardIndex = -1;
+
+    hoveredCardIndex = -1;
+
+    updateGameStatus();
+
+    emitGameEvent(
+        "gameStopped"
+    );
+
+    renderGame();
+
+}
+
+/* =========================================================
+   RESTART GAME
+   ========================================================= */
+
+function restartGame() {
+
+    clearTimeout(aiTimer);
+
+    startGame();
+
+}
+
+/* =========================================================
+   PLAY CARD FROM PLAYER HAND
+   ========================================================= */
+
+function playPlayerCard(index) {
+
+    if (!isPlayerTurn()) {
+
+        return false;
+
+    }
+
+    if (
+        index < 0 ||
+        index >= playerHand.length
+    ) {
+
+        return false;
+
+    }
+
+    const card =
+        playerHand[index];
+
+    if (
+        !canPlayCard(
+            card,
+            playerHand
+        )
+    ) {
+
+        notifyGame(
+            "That card cannot be played."
+        );
+
+        return false;
+
+    }
+
+    /*
+       UNO requirement.
+    */
+
+    if (
+        playerHand.length === 2 &&
+        !playerCalledUNO
+    ) {
+
+        playerNeedsUNO = true;
+
+        notifyGame(
+            "You must call UNO!"
+        );
+
+        return false;
+
+    }
+
+    playerCalledUNO = false;
+
+    playerNeedsUNO = false;
+
+    playCardFromHand(
+        playerHand,
+        index,
+        "PLAYER"
+    );
+
+    return true;
+
+}
+
+/* =========================================================
+   PLAY CARD FROM ANY HAND
+   ========================================================= */
+
+function playCardFromHand(
+    hand,
+    index,
+    owner
+) {
+
+    if (
+        index < 0 ||
+        index >= hand.length
+    ) {
+
+        return false;
+
+    }
+
+    const card =
+        hand.splice(
+            index,
+            1
+        )[0];
+
+    if (!card) {
+
+        return false;
+
+    }
+
+    discardPile.push(card);
+
+    /*
+       Coloured card changes
+       the active colour.
+    */
+
+    if (card.color) {
+
+        currentColor =
+            card.color;
+
+    }
+
+    /*
+       WILD cards need a colour
+       selection.
+    */
+
+    if (
+        card.type === "wild" ||
+        card.type === "wild4"
+    ) {
+
+        pendingWildCard = {
+            card,
+            owner
+        };
+
+        /*
+           AI chooses immediately.
+        */
+
+        if (
+            owner === "AI"
+        ) {
+
+            const chosenColor =
+                aiChooseColor();
+
+            applyWildColor(
+                chosenColor
+            );
+
+        }
+
+    }
+
+    handleCardEffect(
+        card,
+        owner
+    );
+
+    checkWinner();
+
+    if (gameOver) {
+
+        return true;
+
+    }
+
+    /*
+       WILD pauses normal turn
+       only when the player needs
+       to choose a colour.
+    */
+
+    if (
+        pendingWildCard &&
+        owner === "PLAYER"
+    ) {
+
+        updateGameStatus();
+
+        renderGame();
+
+        return true;
+
+    }
+
+    changeTurn();
+
+    updateGameStatus();
+
+    renderGame();
+
+    if (
+        currentTurn === "AI"
+    ) {
+
+        scheduleAITurn();
+
+    }
+
+    return true;
+
+}
+
+/* =========================================================
+   APPLY WILD COLOUR
+   ========================================================= */
+
+function applyWildColor(color) {
+
+    if (
+        !COLOR_NAMES.includes(color)
+    ) {
+
+        return false;
+
+    }
+
+    currentColor = color;
+
+    pendingWildCard = null;
+
+    updateGameStatus();
+
+    renderGame();
+
+    return true;
+
+}
+
+/* =========================================================
+   PLAYER WILD COLOUR
+   ========================================================= */
+
+function playerChooseColor(color) {
+
+    if (!pendingWildCard) {
+
+        return false;
+
+    }
+
+    if (
+        pendingWildCard.owner !==
+        "PLAYER"
+    ) {
+
+        return false;
+
+    }
+
+    applyWildColor(color);
+
+    changeTurn();
+
+    updateGameStatus();
+
+    renderGame();
+
+    if (
+        currentTurn === "AI"
+    ) {
+
+        scheduleAITurn();
+
+    }
+
+    return true;
+
+}
+
+/* =========================================================
+   CARD EFFECTS
+   ========================================================= */
+
+function handleCardEffect(
+    card,
+    owner
+) {
+
+    if (!card) {
+
+        return;
+
+    }
+
+    switch (card.type) {
+
+        case "number":
+
+            break;
+
+        case "skip":
+
+            /*
+               Skip the opponent.
+            */
+
+            if (
+                !gameOver
+            ) {
+
+                changeTurn();
+
+            }
+
+            break;
+
+        case "reverse":
+
+            /*
+               Two-player UNO:
+               Reverse behaves like Skip.
+            */
+
+            if (
+                !gameOver
+            ) {
+
+                changeTurn();
+
+            }
+
+            break;
+
+        case "draw2":
+
+            drawCards(
+                owner === "PLAYER"
+                    ? aiHand
+                    : playerHand,
+                2
+            );
+
+            /*
+               Draw victim loses turn.
+            */
+
+            if (
+                !gameOver
+            ) {
+
+                changeTurn();
+
+            }
+
+            break;
+
+        case "wild":
+
+            break;
+
+        case "wild4":
+
+            drawCards(
+                owner === "PLAYER"
+                    ? aiHand
+                    : playerHand,
+                4
+            );
+
+            /*
+               Victim loses turn.
+            */
+
+            if (
+                !gameOver
+            ) {
+
+                changeTurn();
+
+            }
+
+            break;
+
+        default:
+
+            break;
+
+    }
+
+}
+
+/* =========================================================
+   DRAW PLAYER CARD
+   ========================================================= */
+
+function playerDrawCard() {
+
+    if (!isPlayerTurn()) {
+
+        return null;
+
+    }
+
+    const card =
+        drawFromDeck();
+
+    if (!card) {
+
+        notifyGame(
+            "No cards left to draw."
+        );
+
+        return null;
+
+    }
+
+    playerHand.push(card);
+
+    playerCalledUNO = false;
+
+    playerNeedsUNO = false;
+
+    emitGameEvent(
+        "playerDraw",
+        {
+            card
+        }
+    );
+
+    /*
+       Automatically play the drawn card
+       is NOT allowed.
+    */
+
+    changeTurn();
+
+    updateGameStatus();
+
+    renderGame();
+
+    scheduleAITurn();
+
+    return card;
+
+}
+
+/* =========================================================
+   AI DRAW CARD
+   ========================================================= */
+
+function aiDrawCard() {
+
+    if (!isAITurn()) {
+
+        return null;
+
+    }
+
+    const card =
+        drawFromDeck();
+
+    if (!card) {
+
+        return null;
+
+    }
+
+    aiHand.push(card);
+
+    aiCalledUNO = false;
+
+    aiNeedsUNO = false;
+
+    emitGameEvent(
+        "aiDraw",
+        {
+            card
+        }
+    );
+
+    return card;
+
+}
+
+/* =========================================================
+   PLAYER UNO
+   ========================================================= */
+
+function callPlayerUNO() {
+
+    if (
+        !gameRunning ||
+        gameOver
+    ) {
+
+        return false;
+
+    }
+
+    if (
+        playerHand.length === 1
+    ) {
+
+        playerCalledUNO = true;
+
+        playerNeedsUNO = false;
+
+        notifyGame(
+            "UNO!"
+        );
+
+        emitGameEvent(
+            "playerUNO"
+        );
+
+        renderGame();
+
+        return true;
+
+    }
+
+    notifyGame(
+        "You can call UNO only with one card."
+    );
+
+    return false;
+
+}
+
+/* =========================================================
+   AI UNO
+   ========================================================= */
+
+function aiCallUNO() {
+
+    if (
+        aiHand.length === 1
+    ) {
+
+        aiCalledUNO = true;
+
+        aiNeedsUNO = false;
+
+        emitGameEvent(
+            "aiUNO"
+        );
+
+        notifyGame(
+            "ARSH: UNO!"
+        );
+
+        return true;
+
+    }
+
+    return false;
+
+}
+
+/* =========================================================
+   CHECK UNO STATE
+   ========================================================= */
+
+function checkUNOState() {
+
+    if (
+        playerHand.length === 1 &&
+        !playerCalledUNO
+    ) {
+
+        playerNeedsUNO = true;
+
+    } else {
+
+        playerNeedsUNO = false;
+
+    }
+
+    if (
+        aiHand.length === 1 &&
+        !aiCalledUNO
+    ) {
+
+        aiNeedsUNO = true;
+
+    } else {
+
+        aiNeedsUNO = false;
+
+    }
+
+}
+
+/* =========================================================
+   WINNER CHECK
+   ========================================================= */
+
+function checkWinner() {
+
+    checkUNOState();
+
+    if (
+        playerHand.length === 0
+    ) {
+
+        endGame(
+            "PLAYER"
+        );
+
+        return "PLAYER";
+
+    }
+
+    if (
+        aiHand.length === 0
+    ) {
+
+        endGame(
+            "AI"
+        );
+
+        return "AI";
+
+    }
+
+    return null;
+
+}
+
+/* =========================================================
+   END GAME
+   ========================================================= */
+
+function endGame(winner) {
+
+    gameOver = true;
+
+    gameRunning = false;
+
+    clearTimeout(aiTimer);
+
+    selectedCardIndex = -1;
+
+    hoveredCardIndex = -1;
+
+    let message = "";
+
+    if (
+        winner === "PLAYER"
+    ) {
+
+        message =
+            "YOU WIN!";
+
+    } else if (
+        winner === "AI"
+    ) {
+
+        message =
+            "ARSH WINS!";
+
+    } else {
+
+        message =
+            "GAME OVER";
+
+    }
+
+    notifyGame(
+        message
+    );
+
+    emitGameEvent(
+        "gameOver",
+        {
+            winner,
+            message
+        }
+    );
+
+    updateGameStatus();
+
+    renderGame();
+
+}
+
+/* =========================================================
+   ARSH PRO AI
+   ========================================================= */
+
+function aiChooseCard() {
+
+    if (
+        aiHand.length === 0
+    ) {
+
+        return -1;
+
+    }
+
+    const playable =
+        getPlayableCards(
+            aiHand
+        );
+
+    if (
+        playable.length === 0
+    ) {
+
+        return -1;
+
+    }
+
+    /*
+       EASY
+    */
+
+    if (
+        difficulty === "EASY"
+    ) {
+
+        return (
+            playable[
+                Math.floor(
+                    Math.random() *
+                    playable.length
+                )
+            ]
+        );
+
+    }
+
+    /*
+       NORMAL
+    */
+
+    if (
+        difficulty === "NORMAL"
+    ) {
+
+        let best =
+            playable[0];
+
+        for (
+            const index of playable
+        ) {
+
+            if (
+                getCardPriority(
+                    aiHand[index]
+                ) >
+                getCardPriority(
+                    aiHand[best]
+                )
+            ) {
+
+                best = index;
+
+            }
+
+        }
+
+        return best;
+
+    }
+
+    /*
+       PRO / HARD
+       ARSH analyses the hand,
+       current colour and opponent.
+    */
+
+    let bestIndex =
+        playable[0];
+
+    let bestScore =
+        -Infinity;
+
+    playable.forEach(
+        index => {
+
+            const card =
+                aiHand[index];
+
+            let score =
+                getCardPriority(card) * 2;
+
+            /*
+               Prefer cards that
+               reduce the AI hand.
+            */
+
+            score +=
+                (10 - aiHand.length);
+
+            /*
+               Strong action cards.
+            */
+
+            if (
+                card.type === "draw2"
+            ) {
+
+                score += 35;
+
+            }
+
+            if (
+                card.type === "skip"
+            ) {
+
+                score += 30;
+
+            }
+
+            if (
+                card.type === "reverse"
+            ) {
+
+                score += 25;
+
+            }
+
+            /*
+               Wild cards are valuable
+               when colour control is useful.
+            */
+
+            if (
+                card.type === "wild"
+            ) {
+
+                score += 20;
+
+            }
+
+            if (
+                card.type === "wild4"
+            ) {
+
+                score += 45;
+
+            }
+
+            /*
+               Avoid wasting wild cards
+               when another playable card
+               is available.
+            */
+
+            if (
+                (
+                    card.type === "wild" ||
+                    card.type === "wild4"
+                ) &&
+                playable.length > 1
+            ) {
+
+                score -= 12;
+
+            }
+
+            /*
+               Prefer colours that AI
+               already has many of.
+            */
+
+            if (
+                card.color
+            ) {
+
+                const colourCount =
+                    aiHand.filter(
+                        c =>
+                            c.color ===
+                            card.color
+                    ).length;
+
+                score +=
+                    colourCount * 8;
+
+            }
+
+            /*
+               If AI is close to UNO,
+               aggressive cards get
+               extra priority.
+            */
+
+            if (
+                aiHand.length <= 3
+            ) {
+
+                if (
+                    card.type === "draw2" ||
+                    card.type === "skip" ||
+                    card.type === "wild4"
+                ) {
+
+                    score += 40;
+
+                }
+
+            }
+
+            /*
+               Small random factor prevents
+               identical games every time.
+            */
+
+            score +=
+                Math.random() * 8;
+
+            if (
+                score > bestScore
+            ) {
+
+                bestScore = score;
+
+                bestIndex = index;
+
+            }
+
+        }
+    );
+
+    return bestIndex;
+
+}
+
+/* =========================================================
+   ARSH PRO — CHOOSE COLOUR
+   ========================================================= */
+
+function aiChooseColor() {
+
+    const counts = {
+
+        RED: 0,
+
+        BLUE: 0,
+
+        GREEN: 0,
+
+        YELLOW: 0
+
+    };
+
+    aiHand.forEach(
+        card => {
+
+            if (
+                card.color &&
+                counts[card.color]
+                !== undefined
+            ) {
+
+                counts[
+                    card.color
+                ]++;
+
+            }
+
+        }
+    );
+
+    /*
+       ARSH chooses the colour
+       with the most cards.
+    */
+
+    let bestColor =
+        COLOR_NAMES[0];
+
+    let bestCount =
+        -1;
+
+    COLOR_NAMES.forEach(
+        color => {
+
+            if (
+                counts[color] >
+                bestCount
+            ) {
+
+                bestCount =
+                    counts[color];
+
+                bestColor =
+                    color;
+
+            }
+
+        }
+    );
+
+    return bestColor;
+
+}
+
+/* =========================================================
+   AI TURN
+   ========================================================= */
+
+function runAITurn() {
+
+    if (!isAITurn()) {
+
+        return;
+
+    }
+
+    clearTimeout(aiTimer);
+
+    checkUNOState();
+
+    /*
+       Call UNO when appropriate.
+    */
+
+    if (
+        aiHand.length === 2
+    ) {
+
+        /*
+           AI knows it may be able
+           to reach one card.
+        */
+
+    }
+
+    let cardIndex =
+        aiChooseCard();
+
+    /*
+       No playable card:
+       draw one.
+    */
+
+    if (
+        cardIndex === -1
+    ) {
+
+        aiDrawCard();
+
+        cardIndex =
+            aiHand.length > 0
+                ? aiHand.length - 1
+                : -1;
+
+        /*
+           Only play the drawn card
+           if it is legally playable.
+        */
+
+        if (
+            cardIndex >= 0 &&
+            !canPlayCard(
+                aiHand[cardIndex],
+                aiHand
+            )
+        ) {
+
+            changeTurn();
+
+            updateGameStatus();
+
+            renderGame();
+
+            return;
+
+        }
+
+    }
+
+    if (
+        cardIndex >= 0
+    ) {
+
+        /*
+           AI calls UNO before
+           playing its second-last card.
+        */
+
+        if (
+            aiHand.length === 2
+        ) {
+
+            const selected =
+                aiHand[cardIndex];
+
+            /*
+               If this move leaves
+               one card, call UNO.
+            */
+
+            if (selected) {
+
+                aiCalledUNO = true;
+
+            }
+
+        }
+
+        playCardFromHand(
+            aiHand,
+            cardIndex,
+            "AI"
+        );
+
+        /*
+           playCardFromHand normally
+           changes turn automatically.
+        */
+
+        return;
+
+    }
+
+    /*
+       Safety fallback.
+    */
+
+    changeTurn();
+
+    updateGameStatus();
+
+    renderGame();
+
+}
+
+/* =========================================================
+   SCHEDULE AI
+   ========================================================= */
+
+function scheduleAITurn(
+    delay = 850
+) {
+
+    clearTimeout(aiTimer);
+
+    if (!gameRunning) {
+
+        return;
+
+    }
+
+    if (gameOver) {
+
+        return;
+
+    }
+
+    if (
+        currentTurn !== "AI"
+    ) {
+
+        return;
+
+    }
+
+    aiTimer =
+        setTimeout(
+            runAITurn,
+            delay
+        );
+
+}
+
+/* =========================================================
+   GAME EVENT SYSTEM
+   ========================================================= */
+
+function emitGameEvent(
+    eventName,
+    data = {}
+) {
+
+    try {
+
+        window.dispatchEvent(
+            new CustomEvent(
+                "arena:" + eventName,
+                {
+                    detail: data
+                }
+            )
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Game event error:",
+            error
+        );
+
+    }
+
+}
+
+/* =========================================================
+   STATUS TEXT
+   ========================================================= */
+
+function getGameStatusText() {
+
+    if (gameOver) {
+
+        if (
+            playerHand.length === 0
+        ) {
+
+            return "YOU WIN!";
+
+        }
+
+        if (
+            aiHand.length === 0
+        ) {
+
+            return "ARSH WINS!";
+
+        }
+
+        return "GAME OVER";
+
+    }
+
+    if (
+        pendingWildCard &&
+        pendingWildCard.owner ===
+        "PLAYER"
+    ) {
+
+        return "CHOOSE A COLOUR";
+
+    }
+
+    if (
+        currentTurn === "PLAYER"
+    ) {
+
+        return "YOUR TURN";
+
+    }
+
+    return "ARSH IS THINKING...";
+
+}
+
+/* ======================================
